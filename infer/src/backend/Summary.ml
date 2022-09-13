@@ -55,9 +55,19 @@ include struct
   [@@deriving fields]
 end
 
+(*
 let yojson_of_t {proc_desc; payloads} =
   [%yojson_of: Procname.t * Payloads.t] (Procdesc.get_proc_name proc_desc, payloads)
+*)
 
+let yojson_of_t { proc_desc; payloads } =
+  let list =
+    BiabductionSummary.pp_summary Pp.text F.std_formatter
+      (match payloads.biabduction with
+      | Some s -> s
+      | None -> raise (Invalid_argument "option.get"))
+  in
+  `Assoc [ (Procdesc.get_proc_name proc_desc |> Procname.to_string, list) ]
 
 type full_summary = t
 

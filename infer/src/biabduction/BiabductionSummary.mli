@@ -88,3 +88,5 @@ val get_specs : t -> Prop.normal spec list
 val opt_get_phase : t option -> phase
 
 val pp : Pp.env -> Format.formatter -> t -> unit
+
+val pp_summary : Pp.env -> Format.formatter -> t -> Yojson.Safe.t
