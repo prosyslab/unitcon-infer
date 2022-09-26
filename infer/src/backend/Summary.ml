@@ -67,7 +67,9 @@ let yojson_of_t { proc_desc; payloads } =
       | Some s -> s
       | None -> raise (Invalid_argument "option.get"))
   in
-  `Assoc [ (Procdesc.get_proc_name proc_desc |> Procname.to_string, list) ]
+  let loc = Procdesc.get_loc proc_desc in
+  let filename = loc.Location.file |> SourceFile.to_string in
+  `Assoc [("method", `List [`String (Procdesc.get_proc_name proc_desc |> Procname.to_string)]); ("filename", `List [`String filename]); ("summary", list); ]
 
 type full_summary = t
 
