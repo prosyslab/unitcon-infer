@@ -60,6 +60,11 @@ let yojson_of_t {proc_desc; payloads} =
   [%yojson_of: Procname.t * Payloads.t] (Procdesc.get_proc_name proc_desc, payloads)
 *)
 
+let rm_char str =
+  let str = Str.global_replace (Str.regexp "\n") "" str in
+  let str = Str.replace_first (Str.regexp "^ +") "" str in
+  Str.replace_first (Str.regexp " +$") "" str
+
 let yojson_of_t { proc_desc; payloads } =
   let list =
     BiabductionSummary.pp_summary Pp.text F.std_formatter
@@ -69,7 +74,10 @@ let yojson_of_t { proc_desc; payloads } =
   in
   let loc = Procdesc.get_loc proc_desc in
   let filename = loc.Location.file |> SourceFile.to_string in
-  `Assoc [("method", `List [`String (Procdesc.get_proc_name proc_desc |> Procname.to_string)]); ("filename", `List [`String filename]); ("summary", list); ]
+  let param = Procdesc.pp_formal proc_desc |> rm_char |> String.split ~on:' ' in
+  `Assoc [("method", `List [`String (Procdesc.get_proc_name proc_desc |> Procname.to_string)]);
+  ("param", `List (List.map ~f:(fun x -> `String x) param));
+  ("filename", `List [`String filename]); ("summary", list); ]
 
 type full_summary = t
 

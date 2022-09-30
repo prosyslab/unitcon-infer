@@ -861,6 +861,9 @@ let pp_signature fmt pdesc =
     Format.fprintf fmt ", Return annotations: %a" Annot.Item.pp ret_annots ;
   Format.fprintf fmt "]@]@;"
 
+let pp_formal pdesc =
+  let formal_list = F.asprintf "%a" pp_variable_list (get_formals pdesc) in
+  formal_list
 
 let is_specialized pdesc =
   let attributes = get_attributes pdesc in

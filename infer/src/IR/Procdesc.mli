@@ -344,6 +344,8 @@ val is_loop_head : t -> Node.t -> bool
 
 val pp_signature : Format.formatter -> t -> unit
 
+val pp_formal : t -> string
+
 val pp_local : Format.formatter -> ProcAttributes.var_data -> unit
 
 val is_specialized : t -> bool
