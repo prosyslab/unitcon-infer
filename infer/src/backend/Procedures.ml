@@ -37,7 +37,8 @@ let select_proc_names_interactive ~filter =
       let proc_names_array = List.to_array proc_names in
       Some [proc_names_array.(n)]
   | _, None ->
-      let proc_names_array = List.to_array proc_names in
+      Some proc_names
+      (*let proc_names_array = List.to_array proc_names in
       Array.iteri proc_names_array ~f:(fun i proc_name ->
           F.eprintf "%d: %a@\n" i Procname.pp proc_name ) ;
       let rec ask_user_input () =
@@ -56,7 +57,7 @@ let select_proc_names_interactive ~filter =
               F.eprintf "Invalid input" ;
               ask_user_input ()
       in
-      ask_user_input ()
+      ask_user_input ()*)
 
 
 let pp_all ~filter ~proc_name:proc_name_cond ~defined ~source_file:source_file_cond ~proc_attributes
