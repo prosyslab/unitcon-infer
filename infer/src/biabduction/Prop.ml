@@ -289,7 +289,7 @@ let pp_footprint_simple pe_ env f fp =
   let pe = {pe_ with Pp.cmap_norm= pe_.Pp.cmap_foot} in
   let pp_pure f pi = if not (List.is_empty pi) then F.fprintf f "%a *@\n" (pp_pi pe) pi in
   if (not (List.is_empty fp.pi_fp)) || not (List.is_empty fp.sigma_fp) then
-    F.fprintf f "@\n[footprint@\n   @[%a%a@]  ]" pp_pure fp.pi_fp (pp_sigma_simple pe env)
+    F.fprintf f "@\nfootprint@\n   @[%a%a@]" pp_pure fp.pi_fp (pp_sigma_simple pe env)
       fp.sigma_fp
 
 

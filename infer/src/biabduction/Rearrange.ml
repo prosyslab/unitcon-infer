@@ -879,8 +879,8 @@ let iter_rearrange_ne_dllseg_first tenv recurse_on_iters iter para_dll e1 e2 e3 
     let _, para_dll_inst = Predicates.hpara_dll_instantiate para_dll e1 e2 e3 elist in
     let iter' = Prop.prop_iter_update_current_by_list iter para_dll_inst in
     let prop' = Prop.prop_iter_to_prop tenv iter' in
-    let prop'' = Prop.conjoin_eq tenv ~footprint:!BiabductionConfig.footprint e1 e4 prop' in
-    match Prop.prop_iter_create prop'' with None -> assert false | Some iter' -> iter'
+    let _ = Prop.conjoin_eq tenv ~footprint:!BiabductionConfig.footprint e1 e4 prop' in
+    match Prop.prop_iter_create prop' with None -> assert false | Some iter' -> iter'
   in
   recurse_on_iters [iter_inductive_case; iter_base_case]
 
@@ -897,8 +897,8 @@ let iter_rearrange_ne_dllseg_last tenv recurse_on_iters iter para_dll e1 e2 e3 e
     let _, para_dll_inst = Predicates.hpara_dll_instantiate para_dll e4 e2 e3 elist in
     let iter' = Prop.prop_iter_update_current_by_list iter para_dll_inst in
     let prop' = Prop.prop_iter_to_prop tenv iter' in
-    let prop'' = Prop.conjoin_eq tenv ~footprint:!BiabductionConfig.footprint e1 e4 prop' in
-    match Prop.prop_iter_create prop'' with None -> assert false | Some iter' -> iter'
+    let _ = Prop.conjoin_eq tenv ~footprint:!BiabductionConfig.footprint e1 e4 prop' in
+    match Prop.prop_iter_create prop' with None -> assert false | Some iter' -> iter'
   in
   recurse_on_iters [iter_inductive_case; iter_base_case]
 
@@ -913,8 +913,8 @@ let iter_rearrange_pe_lseg tenv recurse_on_iters default_case_iter iter para e1 
   in
   let iter_subcases =
     let removed_prop = Prop.prop_iter_remove_curr_then_to_prop tenv iter in
-    let prop' = Prop.conjoin_eq tenv ~footprint:!BiabductionConfig.footprint e1 e2 removed_prop in
-    match Prop.prop_iter_create prop' with
+    let _ = Prop.conjoin_eq tenv ~footprint:!BiabductionConfig.footprint e1 e2 removed_prop in
+    match Prop.prop_iter_create removed_prop with
     | None ->
         let iter' = default_case_iter (Prop.prop_iter_set_state iter ()) in
         [Prop.prop_iter_set_state iter' ()]
@@ -1208,11 +1208,7 @@ let check_dereference_error tenv pdesc (prop : Prop.normal Prop.t) lexp loc =
     | None ->
         (* try to remove an offset if any, and find the attribute there *)
         let root_no_offset =
-          match root with
-          | Exp.BinOp ((Binop.PlusPI | Binop.PlusA _ | Binop.MinusPI | Binop.MinusA _), base, _) ->
-              base
-          | _ ->
-              root
+          root
         in
         get_relevant_attributes root_no_offset
   in
@@ -1228,9 +1224,14 @@ let check_dereference_error tenv pdesc (prop : Prop.normal Prop.t) lexp loc =
       Errdesc.explain_dereference pname tenv ~use_buckets:true
         ~is_nullable:(Option.is_some nullable_var_opt) deref_str prop loc
     in
+    L.(debug Analysis Verbose) "@\nverbose error path: %a@@\n" (Prop.pp_prop Pp.text) prop; 
+    Prop.d_prop prop;
     if Localise.is_empty_vector_access_desc err_desc then
       raise (Exceptions.Empty_vector_access (err_desc, __POS__))
-    else raise (Exceptions.Null_dereference (err_desc, __POS__)) ) ;
+    else 
+      ErrorSummary.debug "@\n{start@\n \"function\": %a@\n" Procname.pp pname;
+      ErrorSummary.debug "\"prop\": %a @\nend}@\n" (Prop.pp_prop Pp.text) prop;
+      raise (Exceptions.Null_dereference (err_desc, __POS__)) ) ;
   match attribute_opt with
   | Some (Apred (Adangling dk, _)) ->
       let deref_str = Localise.deref_str_dangling (Some dk) in

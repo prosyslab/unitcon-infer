@@ -25,6 +25,7 @@ type id =
   | LintDotty
   | LintIssues
   | Logs
+  | ErrorSummarys
   | NullsafeFileIssues
   | PerfEvents
   | ProcnamesLocks
@@ -130,6 +131,11 @@ let of_id = function
       ; before_caching_capture= Delete }
   | Logs ->
       { rel_path= "logs"
+      ; kind= File
+      ; before_incremental_analysis= Keep
+      ; before_caching_capture= Delete }
+  | ErrorSummarys ->
+      { rel_path= "error_summarys"
       ; kind= File
       ; before_incremental_analysis= Keep
       ; before_caching_capture= Delete }

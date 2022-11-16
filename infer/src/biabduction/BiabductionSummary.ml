@@ -256,6 +256,7 @@ let pp_spec0 pe num_opt fmt spec =
   let pre = Jprop.to_prop spec.pre in
   let pe_post = Prop.prop_update_obj_sub pe pre in
   let post_list = List.map ~f:fst spec.posts in
+  L.(debug Analysis Verbose) "@\npostcond: %a@\n" (Propgraph.pp_proplist pe_post "POST" (pre, true)) post_list;
   match pe.Pp.kind with
   | TEXT ->
       F.fprintf fmt "--------------------------- %a ---------------------------@\n" pp_num_opt
