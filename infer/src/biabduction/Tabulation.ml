@@ -1218,7 +1218,7 @@ let prop_pure_to_footprint tenv (p : 'a Prop.t) : Prop.normal Prop.t =
 
 
 (** post-process the raw result of a function call *)
-let exe_call_postprocess tenv ret_id callee_pname callee_attrs loc results =
+let exe_call_postprocess tenv ret_id callee_pname callee_attrs loc results prop =
   let filter_valid_res = function Invalid_res _ -> false | Valid_res _ -> true in
   let valid_res0, invalid_res0 = List.partition_tf ~f:filter_valid_res results in
   let valid_res =
@@ -1272,7 +1272,10 @@ let exe_call_postprocess tenv ret_id callee_pname callee_attrs loc results =
                 extend_path path_opt (Some pos) ;
                 if Localise.is_empty_vector_access_desc desc then
                   raise (Exceptions.Empty_vector_access (desc, __POS__))
-                else raise (Exceptions.Null_dereference (desc, __POS__))
+                else 
+                  (ErrorSummary.debug "@\n{start@\n \"callee_function\": %a@\n" Procname.pp callee_pname;
+                  ErrorSummary.debug "\"prop\": %a @\nend}@\n" (Prop.pp_prop Pp.text) prop;
+                  raise (Exceptions.Null_dereference (desc, __POS__)))
             | Dereference_error (Deref_undef _, _, _)
             | Prover_checks _
             | Cannot_combine
@@ -1378,4 +1381,4 @@ let exe_function_call ({InterproceduralAnalysis.tenv; _} as analysis_data) ~call
       callee_attributes
   in
   let results = List.map ~f:exe_one_spec spec_list in
-  exe_call_postprocess tenv ret_id callee_pname callee_attributes loc results
+  exe_call_postprocess tenv ret_id callee_pname callee_attributes loc results prop
