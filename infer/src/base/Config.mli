@@ -343,6 +343,8 @@ val filter_paths : bool
 
 val filtering : bool
 
+val find_missing_summary : bool
+
 val force_delete_results_dir : bool
 
 val force_integration : build_system option

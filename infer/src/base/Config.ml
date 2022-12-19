@@ -1525,6 +1525,9 @@ and filter_paths =
   CLOpt.mk_bool ~long:"filter-paths" ~default:true
     "Apply filters specified in $(b,--report_*) options. Disable for debugging."
 
+and find_missing_summary =
+  CLOpt.mk_bool ~default:false ~long:"find-missing-summary"
+    "Find the precondition for the error path."
 
 and force_delete_results_dir =
   CLOpt.mk_bool ~long:"force-delete-results-dir" ~default:false
@@ -3420,6 +3423,8 @@ and file_renamings = !file_renamings
 and filter_paths = !filter_paths
 
 and filtering = !filtering
+
+and find_missing_summary = !find_missing_summary
 
 and force_delete_results_dir = !force_delete_results_dir
 
