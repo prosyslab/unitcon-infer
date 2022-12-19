@@ -1216,7 +1216,11 @@ let check_dereference_error tenv pdesc (prop : Prop.normal Prop.t) lexp loc =
         in
         get_relevant_attributes root_no_offset
   in
-  ( if Prover.check_zero tenv (Exp.root_of_lexp root) || Option.is_some nullable_var_opt then
+  let condition =
+    if Config.find_missing_summary
+      then false
+      else Prover.check_zero tenv (Exp.root_of_lexp root) || Option.is_some nullable_var_opt in
+  ( if condition then
     let deref_str =
       match nullable_var_opt with
       | Some str ->

@@ -258,7 +258,7 @@ let process_splitting actual_pre sub1 sub2 frame missing_pi missing_sigma frame_
     and path position *)
 let find_dereference_without_null_check_in_inst = function
   | Predicates.Iupdate (Some true, _, n, pos) | Predicates.Irearrange (Some true, _, n, pos) ->
-      Some (n, pos)
+    if Config.find_missing_summary then None else Some (n, pos)
   | _ ->
       None
 
@@ -313,7 +313,7 @@ let check_dereferences caller_pname tenv callee_pname actual_pre sub spec_pre fo
       if Exp.equal e_sub Exp.zero then
         match find_dereference_without_null_check_in_sexp sexp with
         | Some (_, pos) ->
-            Some pos
+          if Config.find_missing_summary then None else Some pos
         | None ->
             None
       else None
@@ -342,7 +342,7 @@ let check_dereferences caller_pname tenv callee_pname actual_pre sub spec_pre fo
   in
   let check_hpred = function
     | Predicates.Hpointsto (lexp, se, _) ->
-        check_dereference (Exp.root_of_lexp lexp) se
+      if Config.find_missing_summary then None else check_dereference (Exp.root_of_lexp lexp) se
     | _ ->
         None
   in
@@ -681,7 +681,7 @@ let prop_copy_footprint_pure tenv p1 p2 =
 
 
 (** check if an expression is an exception *)
-let exp_is_exn = function Exp.Exn _ -> true | _ -> false
+let exp_is_exn = function Exp.Exn _ -> if Config.find_missing_summary then false else true | _ -> false
 
 (** check if a prop is an exception *)
 let prop_is_exn pname prop =
@@ -951,6 +951,9 @@ let mk_posts tenv prop callee_pname posts =
         List.exists
           ~f:(function
             | Predicates.Hpointsto (Exp.Lvar pvar, Eexp (e, _), _) when Pvar.is_return pvar ->
+              if Config.find_missing_summary then
+                false
+              else
                 Prover.check_equal tenv (Prop.normalize tenv prop) e Exp.zero
             | _ ->
                 false )
@@ -1284,22 +1287,42 @@ let exe_call_postprocess tenv ret_id callee_pname callee_attrs loc results prop 
                 assert false )
         | [] ->
             (* no dereference error detected *)
-            let desc =
-              if List.exists ~f:(function Cannot_combine -> true | _ -> false) invalid_res then
-                call_desc (Some Localise.Pnm_dangling)
-              else if
-                List.exists
-                  ~f:(function
-                    | Prover_checks (check :: _) ->
-                        let exn = get_check_exn tenv check callee_pname loc __POS__ in
-                        raise exn
-                    | _ ->
-                        false )
-                  invalid_res
-              then call_desc (Some Localise.Pnm_bounds)
-              else call_desc None
-            in
-            raise (Exceptions.Precondition_not_met (desc, __POS__))
+            if Config.find_missing_summary then (
+              let process_valid_res vr =
+                let save_diverging_states () =
+                    (* no consistent results on one spec: divergence *)
+                    let cons_res =
+                      List.map
+                        ~f:(fun (p, path) -> (prop_pure_to_footprint tenv p, path))
+                        vr.vr_cons_res
+                    in
+                    State.add_diverging_states (Paths.PathSet.from_renamed_list cons_res)
+                in
+                save_diverging_states () ;
+                vr.vr_incons_res
+              in
+              List.map
+                ~f:(fun (p, path) -> (prop_pure_to_footprint tenv p, path))
+                (List.concat_map ~f:process_valid_res valid_res)
+            )
+            else (
+              let desc =
+                if List.exists ~f:(function Cannot_combine -> true | _ -> false) invalid_res then
+                  call_desc (Some Localise.Pnm_dangling)
+                else if
+                  List.exists
+                    ~f:(function
+                      | Prover_checks (check :: _) ->
+                          let exn = get_check_exn tenv check callee_pname loc __POS__ in
+                          raise exn
+                      | _ ->
+                          false )
+                    invalid_res
+                then call_desc (Some Localise.Pnm_bounds)
+                else call_desc None
+              in
+              raise (Exceptions.Precondition_not_met (desc, __POS__))
+            )
       else
         (* combine the valid results, and store diverging states *)
         let process_valid_res vr =

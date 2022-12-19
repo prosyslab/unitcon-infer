@@ -157,7 +157,7 @@ let run_proc_analysis exe_env ~caller_pdesc callee_pdesc =
   let preprocess () =
     incr nesting ;
     update_taskbar callee_pdesc ;
-    Preanal.do_preanalysis exe_env callee_pdesc ;
+    (if Config.find_missing_summary then () else Preanal.do_preanalysis exe_env callee_pdesc) ;
     if Config.debug_mode then
       DotCfg.emit_proc_desc (Procdesc.get_attributes callee_pdesc).translation_unit callee_pdesc
       |> ignore ;

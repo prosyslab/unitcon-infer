@@ -964,7 +964,8 @@ let check_inconsistency_base tenv prop =
         in
         let do_hpred = function
           | Predicates.Hpointsto (Lvar pv, Eexp (e, _), _) ->
-              Exp.equal e Exp.zero && Pvar.is_seed pv
+            if Config.find_missing_summary then false
+            else Exp.equal e Exp.zero && Pvar.is_seed pv
               && (is_java_this pv || is_cpp_this pv || is_objc_instance_self pv)
           | _ ->
               false
