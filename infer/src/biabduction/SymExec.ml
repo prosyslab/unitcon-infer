@@ -1164,6 +1164,13 @@ let rec sym_exec
       | Java callee_pname_java when Config.dynamic_dispatch -> (
           let norm_prop, norm_args' = normalize_params analysis_data prop_ actual_params in
           let norm_args = call_constructor_url_update_args callee_pname norm_args' in
+          let caller_pname = Procdesc.get_proc_name current_pdesc in
+          CallProp.debug "\n{start\n\"caller_pname\": %a\n" Procname.pp caller_pname;
+          CallProp.debug "\"callee_pname\": %a\n" Procname.pp callee_pname;
+          CallProp.debug "\"prop\": %a\n" (Prop.pp_prop Pp.text) norm_prop;
+          CallProp.debug "\"args\": ";
+          List.iter ~f:(fun (exp', _) -> CallProp.debug " %a " Exp.pp exp') norm_args;
+          CallProp.debug "\nend}\n";
           let exec_skip_call ~reason skipped_pname ret_annots ret_type =
             skip_call ~reason norm_prop path skipped_pname ret_annots loc ret_id_typ ret_type
               norm_args

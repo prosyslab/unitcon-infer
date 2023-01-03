@@ -107,6 +107,7 @@ let remove_results_dir () =
 let prepare_logging_and_db () =
   L.setup_log_file () ;
   ErrorSummary.setup_error_summary_file () ;
+  CallProp.setup_call_prop_file () ;
   PerfEvent.init () ;
   if Sys.is_file (get_path CaptureDB) <> `Yes then ResultsDatabase.create_db () ;
   ResultsDatabase.new_database_connection ()

@@ -11,6 +11,7 @@ let buck_infer_deps_file_name = "infer-deps.txt"
 
 type id =
   | AllocationTraces
+  | CallProp
   | CaptureDB
   | CaptureDBShm
   | CaptureDBWal
@@ -63,6 +64,11 @@ let of_id = function
       { rel_path= "memtrace"
       ; kind= Directory
       ; before_incremental_analysis= Delete
+      ; before_caching_capture= Delete }
+  | CallProp ->
+      { rel_path= "call_proposition"
+      ; kind= File
+      ; before_incremental_analysis= Keep
       ; before_caching_capture= Delete }
   | CaptureDependencies ->
       { rel_path= buck_infer_deps_file_name
