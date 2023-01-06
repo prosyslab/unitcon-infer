@@ -12,12 +12,12 @@ open PulseDomainInterface
 
 let report ~is_suppressed ~latent proc_desc err_log diagnostic =
   let open Diagnostic in
-  if is_suppressed && not Config.pulse_report_issues_for_tests then ()
+  if is_suppressed && not Config.pulse_report_issues_for_tests && not Config.show_latent then ()
   else
     (* Report suppressed issues with a message to distinguish them from non-suppressed issues.
        Useful for infer's tests. *)
     let extra_trace =
-      if is_suppressed && Config.pulse_report_issues_for_tests then
+      if is_suppressed && (Config.pulse_report_issues_for_tests || Config.show_latent) then
         let depth = 0 in
         let tags = [] in
         let location = Diagnostic.get_location diagnostic in

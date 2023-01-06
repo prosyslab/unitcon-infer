@@ -2579,6 +2579,9 @@ and scuba_tags =
     "add an extra set of strings (tagset) field to be set for each sample of scuba, format \
      <name>=(<value>,<value>,<value>|NONE)"
 
+and show_latent =
+  CLOpt.mk_bool ~default:false ~long:"show-latent"
+    "Not distinguish latent and manifest bug. Show all potential bug"
 
 and simple_lineage_include_builtins =
   CLOpt.mk_bool ~long:"simple-lineage-include-builtins"
@@ -3844,6 +3847,8 @@ and select =
 
 
 and show_buckets = !print_buckets
+
+and show_latent = !show_latent
 
 and simple_lineage_include_builtins = !simple_lineage_include_builtins
 

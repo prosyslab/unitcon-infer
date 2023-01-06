@@ -665,6 +665,8 @@ val select : [`All | `Select of int] option
 
 val show_buckets : bool
 
+val show_latent : bool
+
 val simple_lineage_include_builtins : bool
 
 val simple_lineage_model_fields : bool
