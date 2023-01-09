@@ -20,6 +20,13 @@ let pp fmt pre_posts =
       F.fprintf fmt "#%d: @[%a@]@;" i ExecutionDomain.pp (pre_post :> ExecutionDomain.t) ) ;
   F.close_box ()
 
+let pp_summary fmt pre_posts =
+  let list = List.map pre_posts ~f:(fun (pre_post : ExecutionDomain.summary) ->
+      let prepost = ExecutionDomain.pp_summary fmt (pre_post :> ExecutionDomain.t) in
+      let json_prepost = List.map prepost ~f:(fun (name, value) -> (name, `String value)) in
+       `Assoc json_prepost)
+  in
+  `List list
 
 let exec_summary_of_post_common tenv ~continue_program proc_desc err_log location
     (exec_astate : ExecutionDomain.t) : _ ExecutionDomain.base_t SatUnsat.t =

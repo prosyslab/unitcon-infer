@@ -42,6 +42,8 @@ val find_cell_opt : AbstractValue.t -> t -> cell option
 
 val pp : F.formatter -> t -> unit
 
+val pp_summary : F.formatter -> t -> unit
+
 val subst_var : for_summary:bool -> AbstractValue.t * AbstractValue.t -> t -> t SatUnsat.t
 
 module GraphVisit : sig

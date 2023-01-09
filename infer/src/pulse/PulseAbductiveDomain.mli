@@ -56,6 +56,8 @@ val leq : lhs:t -> rhs:t -> bool
 
 val pp : Format.formatter -> t -> unit
 
+val pp_summary : Format.formatter -> t -> (string * string) list
+
 val mk_initial : Tenv.t -> Procname.t -> ProcAttributes.t -> t
 
 val get_pre : t -> BaseDomain.t

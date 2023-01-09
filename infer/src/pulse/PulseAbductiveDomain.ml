@@ -44,6 +44,8 @@ module type BaseDomainSig_ = sig
   val subst_var : for_summary:bool -> AbstractValue.t * AbstractValue.t -> t -> t SatUnsat.t
 
   val pp : F.formatter -> t -> unit
+
+  val pp_summary : F.formatter -> t -> unit
 end
 
 (* just to expose record field names without having to type
@@ -116,6 +118,11 @@ let pp f {post; pre; path_condition; decompiler; need_specialization; topl; skip
     PathCondition.pp path_condition PostDomain.pp post PreDomain.pp pre pp_decompiler
     need_specialization SkippedCalls.pp skipped_calls PulseTopl.pp_state topl
 
+let pp_summary f {post; pre; path_condition;} =
+  let itv = PathCondition.pp_summary f path_condition in
+  let pre = F.asprintf "%a" PreDomain.pp_summary pre in
+  let post = F.asprintf "%a" PostDomain.pp_summary post in
+  itv @ [("Precond", pre); ("Postcond", post)]
 
 let set_path_condition path_condition astate = {astate with path_condition}
 

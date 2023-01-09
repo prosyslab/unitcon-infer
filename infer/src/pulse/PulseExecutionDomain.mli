@@ -40,4 +40,6 @@ val continue : AbductiveDomain.t -> t
 val is_unsat_cheap : t -> bool
 (** see {!PulsePathCondition.is_unsat_cheap} *)
 
+val pp_summary : Format.formatter -> t -> (string * string) list
+
 type summary = AbductiveDomain.summary base_t [@@deriving compare, equal, yojson_of]

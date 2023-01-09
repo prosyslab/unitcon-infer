@@ -19,6 +19,8 @@ val false_ : t
 
 val pp : F.formatter -> t -> unit
 
+val pp_summary : F.formatter -> t -> (string * string) list
+
 type new_eqs = PulseFormula.new_eqs
 
 (** {2 Building arithmetic constraints} *)

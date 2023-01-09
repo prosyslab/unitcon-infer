@@ -67,10 +67,10 @@ let rm_char str =
 
 let yojson_of_t { proc_desc; payloads; callee_pnames } =
   let list =
-    BiabductionSummary.pp_summary Pp.text F.std_formatter
-      (match payloads.biabduction with
+    PulseSummary.pp_summary F.std_formatter
+      (match payloads.pulse with
       | Some s -> s
-      | None -> raise (Invalid_argument "option.get"))
+      | None -> [])
   in
   let loc = Procdesc.get_loc proc_desc in
   let filename = loc.Location.file |> SourceFile.to_string in

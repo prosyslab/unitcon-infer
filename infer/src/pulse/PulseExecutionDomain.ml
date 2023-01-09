@@ -80,6 +80,22 @@ let pp fmt = function
       F.fprintf fmt "{LatentInvalidAccess(%a) %a}" Decompiler.pp_expr address AbductiveDomain.pp
         (astate :> AbductiveDomain.t)
 
+let pp_summary fmt = function
+  | AbortProgram astate ->
+      AbductiveDomain.pp_summary fmt (astate :> AbductiveDomain.t)
+  | ContinueProgram astate ->
+      AbductiveDomain.pp_summary fmt astate
+  | ExceptionRaised astate ->
+      AbductiveDomain.pp_summary fmt astate
+  | ExitProgram astate ->
+      AbductiveDomain.pp_summary fmt (astate :> AbductiveDomain.t)
+  | ISLLatentMemoryError astate ->
+      AbductiveDomain.pp_summary fmt (astate :> AbductiveDomain.t)
+  | LatentAbortProgram {astate} ->
+      AbductiveDomain.pp_summary fmt (astate :> AbductiveDomain.t)
+  | LatentInvalidAccess {astate} ->
+      AbductiveDomain.pp_summary fmt (astate :> AbductiveDomain.t)
+
 
 (* do not export this function as there lies wickedness: clients should generally care about what
    kind of state they are manipulating so let's not encourage them not to *)

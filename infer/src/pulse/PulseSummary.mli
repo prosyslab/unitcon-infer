@@ -22,3 +22,8 @@ val force_exit_program :
   -> ExecutionDomain.summary SatUnsat.t
 
 val pp : Format.formatter -> t -> unit
+
+val pp_summary : 
+  Format.formatter ->
+  ExecutionDomain.summary list ->
+  [> `List of [> `Assoc of (string * [> `String of string ]) list ] list ]

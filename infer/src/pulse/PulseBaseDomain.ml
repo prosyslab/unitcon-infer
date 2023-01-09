@@ -184,6 +184,8 @@ let pp fmt {heap; stack; attrs} =
   F.fprintf fmt "{@[<v1> roots=@[<hv>%a@];@;mem  =@[<hv>%a@];@;attrs=@[<hv>%a@];@]}" Stack.pp stack
     Memory.pp heap AddressAttributes.pp attrs
 
+let pp_summary fmt {heap; stack} =
+  F.fprintf fmt "Stack=@[%a@]; Heap=@[%a@]" Stack.pp stack Memory.pp heap
 
 module GraphVisit : sig
   val fold :

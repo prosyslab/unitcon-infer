@@ -49,6 +49,10 @@ let pp fmt {is_unsat; bo_itvs; citvs; formula} =
   F.fprintf fmt "@[<hv>unsat:%b,@;bo: @[%a@],@;citv: @[%a@],@;formula: @[%a@]@]" is_unsat BoItvs.pp
     bo_itvs CItvs.pp citvs Formula.pp formula
 
+let pp_summary _ {bo_itvs; citvs;} =
+  let boitv = F.asprintf "%a" BoItvs.pp bo_itvs in
+  let citv = F.asprintf "%a" CItvs.pp citvs in
+  [("BoItv", boitv); ("CItv", citv)]
 
 let true_ = {is_unsat= false; bo_itvs= BoItvs.empty; citvs= CItvs.empty; formula= Formula.ttrue}
 
