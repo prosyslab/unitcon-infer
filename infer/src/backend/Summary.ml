@@ -65,21 +65,26 @@ let rm_char str =
   let str = Str.replace_first (Str.regexp "^ +") "" str in
   Str.replace_first (Str.regexp " +$") "" str
 
-let yojson_of_t { proc_desc; payloads; callee_pnames } =
+let yojson_of_t {proc_desc; payloads; callee_pnames} =
   let list =
-    PulseSummary.pp_summary F.std_formatter
-      (match payloads.pulse with
-      | Some s -> s
-      | None -> [])
+    PulseSummary.pp_summary F.std_formatter (match payloads.pulse with Some s -> s | None -> [])
   in
   let loc = Procdesc.get_loc proc_desc in
   let filename = loc.Location.file |> SourceFile.to_string in
   let param = Procdesc.pp_formal proc_desc |> rm_char |> String.split ~on:' ' in
   let callee_names = Procname.Set.elements callee_pnames in
-  `Assoc [("method", `List [`String (Procdesc.get_proc_name proc_desc |> Procname.to_string)]);
-  ("param", `List (List.map ~f:(fun x -> `String x) param));
-  ("filename", `List [`String filename]); ("summary", list); 
-  ("callee", `List (List.map ~f:(fun x -> `String (Procname.to_string x)) callee_names));]
+  `Assoc
+    [ ("method", `List [`String (Procdesc.get_proc_name proc_desc |> Procname.to_string)])
+    ; ( "modifier"
+      , `List
+          [ `String
+              ( Procdesc.get_attributes proc_desc |> ProcAttributes.get_access
+              |> ProcAttributes.string_of_access ) ] )
+    ; ("param", `List (List.map ~f:(fun x -> `String x) param))
+    ; ("filename", `List [`String filename])
+    ; ("summary", list)
+    ; ("callee", `List (List.map ~f:(fun x -> `String (Procname.to_string x)) callee_names)) ]
+
 
 type full_summary = t
 

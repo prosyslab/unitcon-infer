@@ -114,4 +114,6 @@ val to_return_type : t -> Typ.t
 (** the return type from method signature, taking into account if the procedure has added return
     parameter *)
 
+val string_of_access : access -> string
+
 module SQLite : SqliteUtils.Data with type t = t
