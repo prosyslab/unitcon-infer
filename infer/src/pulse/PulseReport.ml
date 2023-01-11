@@ -12,7 +12,7 @@ open PulseDomainInterface
 
 let report ~is_suppressed ~latent proc_desc err_log diagnostic =
   let open Diagnostic in
-  if is_suppressed && not Config.pulse_report_issues_for_tests && not Config.show_latent then ()
+  if is_suppressed && (not Config.pulse_report_issues_for_tests) && not Config.show_latent then ()
   else
     (* Report suppressed issues with a message to distinguish them from non-suppressed issues.
        Useful for infer's tests. *)
@@ -200,6 +200,11 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
         is_suppressed tenv proc_desc ~is_nullptr_dereference ~is_constant_deref_without_invalidation
           astate
       in
+      ErrorSummary.debug "{start\nprocname: %s\n"
+        (Procdesc.get_proc_name proc_desc |> Procname.to_string) ;
+      List.iter (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
+        ~f:(fun (title, value) -> ErrorSummary.debug "%s: %s\n" title value) ;
+      ErrorSummary.debug "end}\n" ;
       match LatentIssue.should_report astate diagnostic with
       | `ReportNow ->
           if is_suppressed then L.d_printfln "ReportNow suppressed error" ;
