@@ -589,6 +589,132 @@ module Preconditions = struct
     astate
 end
 
+module WildcardType = struct
+  (*non-parameter*)
+  let pkg_name = "javax.lang.model.type"
+
+  let class_name = "WildcardType"
+
+  let is_empty_field = mk_java_field pkg_name class_name "__infer_model_backing_WildcardType_empty"
+
+  let get_elem_is_empty path is_empty_val is_empty_expected_val event location ret_id astate =
+    let not_found_val = AbstractValue.mk_fresh () in
+    let* astate =
+      PulseArithmetic.prune_binop ~negated:false Binop.Eq (AbstractValueOperand is_empty_val)
+        (AbstractValueOperand is_empty_expected_val) astate
+      >>= PulseArithmetic.and_eq_int not_found_val IntLit.zero
+      >>= PulseArithmetic.and_eq_int is_empty_expected_val IntLit.one
+    in
+    let hist = Hist.single_event path event in
+    let astate = PulseOperations.write_id ret_id (not_found_val, hist) astate in
+    PulseOperations.invalidate path
+      (StackAddress (Var.of_id ret_id, hist))
+      location (ConstantDereference IntLit.zero)
+      (not_found_val, Hist.single_event path event)
+      astate
+
+
+  let get ~desc elem : model =
+   fun {path; location; ret= ret_id, _} astate ->
+    let event = Hist.call_event path location desc in
+    let<*> astate, elem_val =
+      PulseOperations.eval_access path Read location elem Dereference astate
+    in
+    let<*> astate, _, (is_empty_val, _) = load_field path is_empty_field location elem_val astate in
+    let true_val = AbstractValue.mk_fresh () in
+    let astate1 =
+      get_elem_is_empty path is_empty_val true_val event location ret_id astate
+      |> Basic.map_continue
+    in
+    let found_val = AbstractValue.mk_fresh () in
+    let astate2 = PulseArithmetic.and_positive found_val astate |> Basic.map_continue in
+    [astate1; astate2]
+end
+
+module ThreadLocal = struct
+  (*non-parameter*)
+  let pkg_name = "java.lang"
+
+  let class_name = "ThreadLocal"
+
+  let is_empty_field = mk_java_field pkg_name class_name "__infer_model_backing_ThreadLocal_empty"
+
+  let get_elem_is_empty path is_empty_val is_empty_expected_val event location ret_id astate =
+    let not_found_val = AbstractValue.mk_fresh () in
+    let* astate =
+      PulseArithmetic.prune_binop ~negated:false Binop.Eq (AbstractValueOperand is_empty_val)
+        (AbstractValueOperand is_empty_expected_val) astate
+      >>= PulseArithmetic.and_eq_int not_found_val IntLit.zero
+      >>= PulseArithmetic.and_eq_int is_empty_expected_val IntLit.one
+    in
+    let hist = Hist.single_event path event in
+    let astate = PulseOperations.write_id ret_id (not_found_val, hist) astate in
+    PulseOperations.invalidate path
+      (StackAddress (Var.of_id ret_id, hist))
+      location (ConstantDereference IntLit.zero)
+      (not_found_val, Hist.single_event path event)
+      astate
+
+
+  let get ~desc elem : model =
+   fun {path; location; ret= ret_id, _} astate ->
+    let event = Hist.call_event path location desc in
+    let<*> astate, elem_val =
+      PulseOperations.eval_access path Read location elem Dereference astate
+    in
+    let<*> astate, _, (is_empty_val, _) = load_field path is_empty_field location elem_val astate in
+    let true_val = AbstractValue.mk_fresh () in
+    let astate1 =
+      get_elem_is_empty path is_empty_val true_val event location ret_id astate
+      |> Basic.map_continue
+    in
+    let found_val = AbstractValue.mk_fresh () in
+    let astate2 = PulseArithmetic.and_positive found_val astate |> Basic.map_continue in
+    [astate1; astate2]
+end
+
+module Graphics = struct
+  (*non-parameter*)
+  let pkg_name = "javax.swing"
+
+  let class_name = "JComponent"
+
+  let is_empty_field = mk_java_field pkg_name class_name "__infer_model_backing_JComponent_empty"
+
+  let get_elem_is_empty path is_empty_val is_empty_expected_val event location ret_id astate =
+    let not_found_val = AbstractValue.mk_fresh () in
+    let* astate =
+      PulseArithmetic.prune_binop ~negated:false Binop.Eq (AbstractValueOperand is_empty_val)
+        (AbstractValueOperand is_empty_expected_val) astate
+      >>= PulseArithmetic.and_eq_int not_found_val IntLit.zero
+      >>= PulseArithmetic.and_eq_int is_empty_expected_val IntLit.one
+    in
+    let hist = Hist.single_event path event in
+    let astate = PulseOperations.write_id ret_id (not_found_val, hist) astate in
+    PulseOperations.invalidate path
+      (StackAddress (Var.of_id ret_id, hist))
+      location (ConstantDereference IntLit.zero)
+      (not_found_val, Hist.single_event path event)
+      astate
+
+
+  let get ~desc elem : model =
+   fun {path; location; ret= ret_id, _} astate ->
+    let event = Hist.call_event path location desc in
+    let<*> astate, elem_val =
+      PulseOperations.eval_access path Read location elem Dereference astate
+    in
+    let<*> astate, _, (is_empty_val, _) = load_field path is_empty_field location elem_val astate in
+    let true_val = AbstractValue.mk_fresh () in
+    let astate1 =
+      get_elem_is_empty path is_empty_val true_val event location ret_id astate
+      |> Basic.map_continue
+    in
+    let found_val = AbstractValue.mk_fresh () in
+    let astate2 = PulseArithmetic.and_positive found_val astate |> Basic.map_continue in
+    [astate1; astate2]
+end
+
 let non_static_method name1 (_, procname) name2 =
   (not (Procname.is_java_static_method procname)) && String.equal name1 name2
 
@@ -783,6 +909,15 @@ let matchers : matcher list =
   ; +map_context_tenv PatternMatch.Java.implements_iterator
     &:: "next" <>$ capt_arg_payload
     $!--> Iterator.next ~desc:"Iterator.next()"
+  ; +map_context_tenv (PatternMatch.Java.implements_lang "ThreadLocal")
+    &:: "get" <>$ capt_arg_payload
+    $--> ThreadLocal.get ~desc:"ThreadLocal.get()"
+  ; +map_context_tenv (PatternMatch.Java.implements "javax.lang.model.type.WildcardType")
+    &:: "getExtendsBound" <>$ capt_arg_payload
+    $--> WildcardType.get ~desc:"WildcardType.getExtendsBound()"
+  ; +map_context_tenv (PatternMatch.Java.implements "javax.swing.JComponent")
+    &:: "getGraphics" <>$ capt_arg_payload
+    $--> Graphics.get ~desc:"JComponent.getGraphics()"
   ; +BuiltinDecl.(match_builtin __instanceof) <>$ capt_arg_payload $+ capt_exp $--> instance_of
   ; ( +map_context_tenv PatternMatch.Java.implements_enumeration
     &:: "nextElement" <>$ capt_arg_payload
