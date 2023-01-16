@@ -161,11 +161,11 @@ let pp fmt = function
   | Between (lower, upper) when Bound.equal lower upper ->
       F.fprintf fmt "=%a" Bound.pp lower
   | Between (lower, upper) ->
-      F.fprintf fmt "in[%a,%a]" Bound.pp lower Bound.pp upper
+      F.fprintf fmt "in[%a %a]" Bound.pp lower Bound.pp upper
   | Outside (l, u) when IntLit.eq l u ->
       F.fprintf fmt "!=%a" IntLit.pp l
   | Outside (l, u) ->
-      F.fprintf fmt "not_in[%a,%a]" IntLit.pp l IntLit.pp u
+      F.fprintf fmt "not_in[%a %a]" IntLit.pp l IntLit.pp u
 
 
 let is_equal_to_zero = function
