@@ -16,9 +16,9 @@ module Bound = struct
     | Int i ->
         IntLit.pp fmt i
     | MinusInfinity ->
-        F.pp_print_string fmt "-∞"
+        F.pp_print_string fmt "-inf"
     | PlusInfinity ->
-        F.pp_print_string fmt "+∞"
+        F.pp_print_string fmt "+inf"
 
 
   let equal b1 b2 =
@@ -153,19 +153,19 @@ include Unsafe
 
 let pp fmt = function
   | Between (MinusInfinity, PlusInfinity) ->
-      F.fprintf fmt "∈ℕ"
+      F.fprintf fmt "in_N"
   | Between (lower, PlusInfinity) ->
-      F.fprintf fmt "≥%a" Bound.pp lower
+      F.fprintf fmt ">=%a" Bound.pp lower
   | Between (MinusInfinity, upper) ->
-      F.fprintf fmt "≤%a" Bound.pp upper
+      F.fprintf fmt "<=%a" Bound.pp upper
   | Between (lower, upper) when Bound.equal lower upper ->
       F.fprintf fmt "=%a" Bound.pp lower
   | Between (lower, upper) ->
-      F.fprintf fmt "∈[%a,%a]" Bound.pp lower Bound.pp upper
+      F.fprintf fmt "in[%a,%a]" Bound.pp lower Bound.pp upper
   | Outside (l, u) when IntLit.eq l u ->
-      F.fprintf fmt "≠%a" IntLit.pp l
+      F.fprintf fmt "!=%a" IntLit.pp l
   | Outside (l, u) ->
-      F.fprintf fmt "∉[%a,%a]" IntLit.pp l IntLit.pp u
+      F.fprintf fmt "not_in[%a,%a]" IntLit.pp l IntLit.pp u
 
 
 let is_equal_to_zero = function
