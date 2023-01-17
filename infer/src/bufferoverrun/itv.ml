@@ -121,7 +121,7 @@ module ItvPure = struct
       | Some symbol when Config.bo_debug < 3 ->
           Symb.SymbolPath.pp_mark ~markup fmt symbol
       | _ ->
-          F.fprintf fmt "[%a, %a]" (Bound.pp_mark ~markup) l (Bound.pp_mark ~markup) u
+          F.fprintf fmt "[%a %a]" (Bound.pp_mark ~markup) l (Bound.pp_mark ~markup) u
 
 
   let pp = pp_mark ~markup:false
