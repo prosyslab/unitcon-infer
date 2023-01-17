@@ -273,9 +273,9 @@ module Bound = struct
     in
     fun ~markup f -> function
       | MInf ->
-          F.pp_print_string f "-oo"
+          F.pp_print_string f "-inf"
       | PInf ->
-          F.pp_print_string f "+oo"
+          F.pp_print_string f "+inf"
       | Linear (c, x) ->
           if SymLinear.is_zero x then Z.pp_print f c
           else (
@@ -284,9 +284,9 @@ module Bound = struct
       | MinMax (c, sign, m, d, x) ->
           if Z.(equal c zero) then (Sign.pp ~need_plus:false) f sign
           else F.fprintf f "%a%a" Z.pp_print c (Sign.pp ~need_plus:true) sign ;
-          F.fprintf f "%a(%a, %a)" MinMax.pp m Z.pp_print d (Symb.Symbol.pp_mark ~markup) x
+          F.fprintf f "%a(%a %a)" MinMax.pp m Z.pp_print d (Symb.Symbol.pp_mark ~markup) x
       | MinMaxB (m, x, y) ->
-          F.fprintf f "%a(%a, %a)" MinMax.pp m (pp_mark ~markup) x (pp_mark ~markup) y
+          F.fprintf f "%a(%a %a)" MinMax.pp m (pp_mark ~markup) x (pp_mark ~markup) y
       | MultB (c, x, y) ->
           F.fprintf f "%a%s%a%a" (pp_mark ~markup) x SpecialChars.multiplication_sign
             (pp_mark ~markup) y pp_c c
