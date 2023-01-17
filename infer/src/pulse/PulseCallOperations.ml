@@ -320,7 +320,7 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
       ~actuals astate
   in
   let captured_formals = List.map captured_formals ~f:(fun (var, _, typ) -> (var, typ)) in
-  CallProp.debug "\n{start\ncaller: %a(%a), callee: %a(%a)"
+  CallProp.debug "\n{start\ncaller: %a(%a)\ncallee: %a(%a)"
   Procname.pp (Procdesc.get_proc_name caller_proc_desc)
   (Pp.seq ~sep:"," (fun f (var, _) -> Var.pp f var)) caller_formals
   Procname.pp callee_pname
