@@ -311,20 +311,14 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
         (Var.of_pvar pvar, capture_mode, typ) )
   in
   let caller_astate = astate in
-  let caller_formals =
-    List.map (Procdesc.get_attributes caller_proc_desc).formals ~f:(fun (mangled, typ, _) ->
-        (Pvar.mk mangled callee_pname |> Var.of_pvar, typ) )
-    in
   let<*> astate, captured_actuals =
     PulseOperations.get_captured_actuals callee_pname path call_loc ~captured_formals ~call_kind
       ~actuals astate
   in
   let captured_formals = List.map captured_formals ~f:(fun (var, _, typ) -> (var, typ)) in
-  CallProp.debug "\n{start\ncaller: %a(%a)\ncallee: %a(%a)"
+  CallProp.debug "\n{start\ncaller: %a\ncallee: %a"
   Procname.pp (Procdesc.get_proc_name caller_proc_desc)
-  (Pp.seq ~sep:"," (fun f (var, _) -> Var.pp f var)) caller_formals
-  Procname.pp callee_pname
-  (Pp.seq ~sep:"," (fun f (var, _) -> Var.pp f var)) formals;
+  Procname.pp callee_pname;
   CallProp.debug "\nsummary: ";
   List.iter (AbductiveDomain.pp_summary Format.std_formatter caller_astate) ~f:(fun (title, value) -> CallProp.debug "%s: %s\n" title value);
   CallProp.debug "\nactual: ";
