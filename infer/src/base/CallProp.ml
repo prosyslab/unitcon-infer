@@ -84,10 +84,13 @@ lazy (
 let flush_formatters {file;} =
   Option.iter file ~f:(fun file -> F.pp_print_flush file ())
 
-let print ?(to_file = true) (lazy formatters) =
-  match (to_file) with
-  | false ->
-      F.ifprintf F.std_formatter
+let print ?(flush = false) (lazy formatters) =
+  match (flush) with
+  | true ->
+      Option.iter !formatters.file ~f:(fun file -> F.pp_print_flush file ());
+      Option.value_map !formatters.file
+        ~f:(fun file_fmt -> F.fprintf file_fmt)
+        ~default:(F.fprintf F.err_formatter)
   | _ ->
       (* to_console might be true, but in that case so is Config.print_logs so do not print to
         stderr because it will get props from the call proposition file already *)
@@ -123,10 +126,9 @@ let reset_formatters () =
 
 let () = register_epilogue ()
 
-let debug fmt =
-  print ~to_file:true register_formatter fmt
+let debug fmt = print ~flush:false register_formatter fmt
 
-let result fmt = print register_formatter fmt
+let result fmt = print ~flush:true register_formatter fmt
 
 (* create new channel from the call proposition file, and dumps the contents of the temporary call proposition buffer there *)
 let setup_call_prop_file () =
@@ -153,4 +155,4 @@ let setup_call_prop_file () =
       if preexisting_logfile then is_newline := false ;
       reset_formatters () ;
       if Config.is_originator && preexisting_logfile then
-      print ~to_file:true register_formatter ""
+      print ~flush:false register_formatter ""

@@ -205,6 +205,7 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
       List.iter (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
         ~f:(fun (title, value) -> ErrorSummary.debug "%s: %s\n" title value) ;
       ErrorSummary.debug "end}\n" ;
+      ErrorSummary.result "";
       match LatentIssue.should_report astate diagnostic with
       | `ReportNow ->
           if is_suppressed then L.d_printfln "ReportNow suppressed error" ;

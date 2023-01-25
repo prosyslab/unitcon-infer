@@ -324,6 +324,7 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
   CallProp.debug "\nactual: ";
   List.iter actuals ~f:(fun ((ab_val, _), _) -> CallProp.debug " %a " AbstractValue.pp ab_val);
   CallProp.debug "\nend}";
+  CallProp.result "";
   let should_keep_at_most_one_disjunct =
     Option.exists Config.pulse_cut_to_one_path_procedures_pattern ~f:(fun regex ->
         Str.string_match regex (Procname.to_string callee_pname) 0 )
