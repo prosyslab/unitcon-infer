@@ -823,7 +823,7 @@ let pp_variable_list fmt etl =
   if List.is_empty etl then Format.pp_print_string fmt "None"
   else
     List.iter
-      ~f:(fun (id, ty, _) -> Format.fprintf fmt " %a:%a" Mangled.pp id (Typ.pp_full Pp.text) ty)
+      ~f:(fun (id, ty, _) -> Format.fprintf fmt "  %a:%a" Mangled.pp id (Typ.pp_full Pp.text) ty)
       etl
 
 
