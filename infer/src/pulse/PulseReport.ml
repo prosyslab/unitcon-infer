@@ -177,15 +177,21 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
       in
       if is_suppressed then L.d_printfln "suppressed error" ;
       if Config.pulse_report_latent_issues then
-        report ~latent:true ~is_suppressed proc_desc err_log
-          (AccessToInvalidAddress
-             { calling_context= []
-             ; invalid_address= address
-             ; invalidation= ConstantDereference IntLit.zero
-             ; invalidation_trace=
-                 Immediate {location= Procdesc.get_loc proc_desc; history= ValueHistory.epoch}
-             ; access_trace
-             ; must_be_valid_reason= snd must_be_valid } ) ;
+        ErrorSummary.debug "{start\nprocname: %s\n"
+          (Procdesc.get_proc_name proc_desc |> Procname.to_string) ;
+      List.iter (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
+        ~f:(fun (title, value) -> ErrorSummary.debug "%s: %s\n" title value) ;
+      ErrorSummary.debug "end}\n" ;
+      ErrorSummary.result "" ;
+      report ~latent:true ~is_suppressed proc_desc err_log
+        (AccessToInvalidAddress
+           { calling_context= []
+           ; invalid_address= address
+           ; invalidation= ConstantDereference IntLit.zero
+           ; invalidation_trace=
+               Immediate {location= Procdesc.get_loc proc_desc; history= ValueHistory.epoch}
+           ; access_trace
+           ; must_be_valid_reason= snd must_be_valid } ) ;
       Some (LatentInvalidAccess {astate; address; must_be_valid; calling_context= []})
   | ISLErrorSummary {astate} ->
       Some (ISLLatentMemoryError astate)
@@ -205,7 +211,7 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
       List.iter (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
         ~f:(fun (title, value) -> ErrorSummary.debug "%s: %s\n" title value) ;
       ErrorSummary.debug "end}\n" ;
-      ErrorSummary.result "";
+      ErrorSummary.result "" ;
       match LatentIssue.should_report astate diagnostic with
       | `ReportNow ->
           if is_suppressed then L.d_printfln "ReportNow suppressed error" ;
