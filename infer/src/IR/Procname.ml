@@ -1123,6 +1123,10 @@ let pp_without_templates fmt = function
 
 let to_string proc_name = F.asprintf "%a" pp proc_name
 
+let get_method_type t =
+  match is_static t with Some s -> s |> string_of_bool | None -> false |> string_of_bool
+
+
 let get_block_type proc =
   match base_of proc with
   | Block {block_type} ->

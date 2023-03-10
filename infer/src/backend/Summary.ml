@@ -65,6 +65,7 @@ let rm_char str =
   let str = Str.replace_first (Str.regexp "^ +") "" str in
   Str.replace_first (Str.regexp " +$") "" str
 
+
 let yojson_of_t {proc_desc; payloads; callee_pnames} =
   let list =
     PulseSummary.pp_summary F.std_formatter (match payloads.pulse with Some s -> s | None -> [])
@@ -73,13 +74,15 @@ let yojson_of_t {proc_desc; payloads; callee_pnames} =
   let filename = loc.Location.file |> SourceFile.to_string in
   let param = Procdesc.pp_formal proc_desc |> rm_char |> Str.split (Str.regexp "  ") in
   let callee_names = Procname.Set.elements callee_pnames in
+  let proc_name = Procdesc.get_proc_name proc_desc in
   `Assoc
-    [ ("method", `List [`String (Procdesc.get_proc_name proc_desc |> Procname.to_string)])
+    [ ("method", `List [`String (proc_name |> Procname.to_string)])
     ; ( "modifier"
       , `List
           [ `String
               ( Procdesc.get_attributes proc_desc |> ProcAttributes.get_access
               |> ProcAttributes.string_of_access ) ] )
+    ; ("is_static", `List [`String (Procname.get_method_type proc_name)])
     ; ("param", `List (List.map ~f:(fun x -> `String x) param))
     ; ("filename", `List [`String filename])
     ; ("summary", list)

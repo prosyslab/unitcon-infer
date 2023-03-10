@@ -250,6 +250,8 @@ val get_class_type_name : t -> Typ.Name.t option
 
 val get_class_name : t -> string option
 
+val get_method_type : t -> string
+
 val get_parameters : t -> Parameter.t list
 
 val replace_parameters : Parameter.t list -> t -> t
