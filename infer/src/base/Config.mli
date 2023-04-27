@@ -737,6 +737,10 @@ val summaries_caches_max_size : int
 
 val suppress_lint_ignore_types : bool
 
+val target_file_line : int
+
+val target_file_name : string
+
 val tenv_json : string option
 
 val test_determinator : bool

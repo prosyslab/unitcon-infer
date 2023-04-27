@@ -2807,6 +2807,13 @@ and summaries_caches_max_size =
   CLOpt.mk_int ~long:"summaries-caches-max-size" ~default:500
     "The maximum amount of elements the summaries LRU caches can hold"
 
+and target_file_line =
+  CLOpt.mk_int ~long:"target-file-line" ~default:(-2)
+    "Make force alarm"
+
+and target_file_name =
+  CLOpt.mk_string ~long:"target-file-name" ~default:""
+    "Make force alarm"
 
 and test_determinator =
   CLOpt.mk_bool ~long:"test-determinator" ~default:false
@@ -3925,6 +3932,10 @@ and subtype_multirange = !subtype_multirange
 and summaries_caches_max_size = !summaries_caches_max_size
 
 and suppress_lint_ignore_types = !suppress_lint_ignore_types
+
+and target_file_line = !target_file_line
+
+and target_file_name = !target_file_name
 
 and keep_going = !keep_going
 
