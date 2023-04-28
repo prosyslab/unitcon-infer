@@ -71,10 +71,8 @@ type t = AbductiveDomain.t
 
 let check_addr_access path ?must_be_valid_reason access_mode location (address, history) astate =
   let access_trace = Trace.Immediate {location; history} in
-  let filename = location.Location.file |> SourceFile.to_rel_path in
-  let linenum = location.Location.line in
-  if String.equal filename Config.target_file_name && Int.equal linenum Config.target_file_line then
-    Error (Invalidation.ConstantDereference IntLit.zero, access_trace)
+  let* astate =
+    AddressAttributes.check_valid path ?must_be_valid_reason access_trace address astate
     |> Result.map_error ~f:(fun (invalidation, invalidation_trace) ->
            ReportableError
              { diagnostic=
@@ -86,38 +84,23 @@ let check_addr_access path ?must_be_valid_reason access_mode location (address, 
                    ; access_trace
                    ; must_be_valid_reason }
              ; astate } )
-    |> AccessResult.of_result_f ~f:(fun _ -> AbductiveDomain.initialize address astate)
-  else
-    let* astate =
-      AddressAttributes.check_valid path ?must_be_valid_reason access_trace address astate
-      |> Result.map_error ~f:(fun (invalidation, invalidation_trace) ->
+    |> AccessResult.of_result
+  in
+  match access_mode with
+  | Read ->
+      AddressAttributes.check_initialized path access_trace address astate
+      |> Result.map_error ~f:(fun () ->
              ReportableError
                { diagnostic=
-                   Diagnostic.AccessToInvalidAddress
-                     { calling_context= []
-                     ; invalid_address= Decompiler.find address astate
-                     ; invalidation
-                     ; invalidation_trace
-                     ; access_trace
-                     ; must_be_valid_reason }
+                   Diagnostic.ReadUninitializedValue {calling_context= []; trace= access_trace}
                ; astate } )
-      |> AccessResult.of_result
-    in
-    match access_mode with
-    | Read ->
-        AddressAttributes.check_initialized path access_trace address astate
-        |> Result.map_error ~f:(fun () ->
-               ReportableError
-                 { diagnostic=
-                     Diagnostic.ReadUninitializedValue {calling_context= []; trace= access_trace}
-                 ; astate } )
-        |> AccessResult.of_result_f ~f:(fun _ ->
-               (* do not report further uninitialized reads errors on this value *)
-               AbductiveDomain.initialize address astate )
-    | Write ->
-        Ok (AbductiveDomain.initialize address astate)
-    | NoAccess ->
-        Ok astate
+      |> AccessResult.of_result_f ~f:(fun _ ->
+             (* do not report further uninitialized reads errors on this value *)
+             AbductiveDomain.initialize address astate )
+  | Write ->
+      Ok (AbductiveDomain.initialize address astate)
+  | NoAccess ->
+      Ok astate
 
 
 let check_and_abduce_addr_access_isl path access_mode location (address, history)
@@ -685,7 +668,7 @@ let get_dynamic_type_unreachable_values vars astate =
         let* attrs = AbductiveDomain.AddressAttributes.find_opt addr astate in
         let* typ = Attributes.get_dynamic_type attrs in
         let+ var = find_var_opt astate addr in
-        (var, addr, typ) :: res)
+        (var, addr, typ) :: res )
         |> Option.value ~default:res )
   in
   List.map ~f:(fun (var, _, typ) -> (var, typ)) res

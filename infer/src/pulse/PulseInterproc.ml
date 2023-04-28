@@ -239,7 +239,7 @@ let materialize_pre_from_actual callee_proc_name call_location ~pre ~formal:(for
   let* addr_formal_pre, _ = BaseStack.find_opt formal pre.BaseDomain.stack in
   let+ formal_pre = deref_non_c_struct addr_formal_pre typ pre.BaseDomain.heap in
   materialize_pre_from_address callee_proc_name call_location ~pre ~addr_pre:formal_pre
-    ~addr_hist_caller:actual call_state)
+    ~addr_hist_caller:actual call_state )
   |> function Some result -> result | None -> Ok call_state
 
 
@@ -736,6 +736,8 @@ let apply_post path callee_proc_name call_location pre_post ~captured_formals ~c
 let check_all_valid path callee_proc_name call_location {AbductiveDomain.pre; _} call_state =
   (* collect all the checks to perform then do each check in timestamp order to make sure we report
      the first issue if any *)
+  let filename = call_location.Location.file |> SourceFile.to_rel_path in
+  let linenum = call_location.Location.line in
   let addresses_to_check =
     AddressMap.fold
       (fun addr_pre addr_hist_caller to_check ->
@@ -773,20 +775,37 @@ let check_all_valid path callee_proc_name call_location {AbductiveDomain.pre; _}
          match check with
          | `MustBeValid (_timestamp, callee_access_trace, must_be_valid_reason) ->
              let access_trace = mk_access_trace callee_access_trace in
-             AddressAttributes.check_valid path access_trace addr_caller astate
-             |> Result.map_error ~f:(fun (invalidation, invalidation_trace) ->
-                    L.d_printfln ~color:Red "ERROR: caller's %a invalid!" AbstractValue.pp
-                      addr_caller ;
-                    AccessResult.ReportableError
-                      { diagnostic=
-                          AccessToInvalidAddress
-                            { calling_context= []
-                            ; invalid_address= Decompiler.find addr_caller astate
-                            ; invalidation
-                            ; invalidation_trace
-                            ; access_trace
-                            ; must_be_valid_reason }
-                      ; astate } )
+             if
+               String.equal filename Config.target_file_name
+               && Int.equal linenum Config.target_file_line
+             then
+               Error (Invalidation.ConstantDereference IntLit.zero, access_trace)
+               |> Result.map_error ~f:(fun (invalidation, invalidation_trace) ->
+                      AccessResult.ReportableError
+                        { diagnostic=
+                            AccessToInvalidAddress
+                              { calling_context= []
+                              ; invalid_address= Decompiler.find addr_caller astate
+                              ; invalidation
+                              ; invalidation_trace
+                              ; access_trace
+                              ; must_be_valid_reason }
+                        ; astate } )
+             else
+               AddressAttributes.check_valid path access_trace addr_caller astate
+               |> Result.map_error ~f:(fun (invalidation, invalidation_trace) ->
+                      L.d_printfln ~color:Red "ERROR: caller's %a invalid!" AbstractValue.pp
+                        addr_caller ;
+                      AccessResult.ReportableError
+                        { diagnostic=
+                            AccessToInvalidAddress
+                              { calling_context= []
+                              ; invalid_address= Decompiler.find addr_caller astate
+                              ; invalidation
+                              ; invalidation_trace
+                              ; access_trace
+                              ; must_be_valid_reason }
+                        ; astate } )
          | `MustBeInitialized (_timestamp, callee_access_trace) ->
              let access_trace = mk_access_trace callee_access_trace in
              AddressAttributes.check_initialized path access_trace addr_caller astate
