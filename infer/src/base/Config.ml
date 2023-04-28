@@ -1699,6 +1699,9 @@ and issues_tests =
     ~in_help:InferCommand.[(Report, manual_generic)]
     ~meta:"file" "Write a list of issues in a format suitable for tests to $(i,file)"
 
+and interproc =
+  CLOpt.mk_bool ~long:"interproc" ~default:false
+  "Make force alarm when interprocedure analyze"
 
 and java_debug_source_file_info =
   CLOpt.mk_path_opt ~long:"java-debug-source-file-info" ~meta:"path"
@@ -3507,6 +3510,8 @@ and incremental_analysis = !incremental_analysis
 and issues_tests = !issues_tests
 
 and issues_tests_fields = !issues_tests_fields
+
+and interproc = !interproc
 
 and java_debug_source_file_info = !java_debug_source_file_info
 

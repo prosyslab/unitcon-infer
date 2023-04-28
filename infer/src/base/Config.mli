@@ -402,6 +402,8 @@ val issues_tests : string option
 
 val issues_tests_fields : IssuesTestField.t list
 
+val interproc : bool
+
 val java_debug_source_file_info : string option
 
 val java_jar_compiler : string option
