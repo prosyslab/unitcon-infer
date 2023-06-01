@@ -316,15 +316,18 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
       ~actuals astate
   in
   let captured_formals = List.map captured_formals ~f:(fun (var, _, typ) -> (var, typ)) in
-  CallProp.debug "\n{start\ncaller: %a\ncallee: %a"
-  Procname.pp (Procdesc.get_proc_name caller_proc_desc)
-  Procname.pp callee_pname;
-  CallProp.debug "\nsummary: ";
-  List.iter (AbductiveDomain.pp_summary Format.std_formatter caller_astate) ~f:(fun (title, value) -> CallProp.debug "%s: %s\n" title value);
-  CallProp.debug "\nactual: ";
-  List.iter actuals ~f:(fun ((ab_val, _), _) -> CallProp.debug " %a " AbstractValue.pp ab_val);
-  CallProp.debug "\nend}";
-  CallProp.result "";
+  if Int.equal (List.length actuals) 0 then ()
+  else (
+    CallProp.debug "\n{start\ncaller: %a\ncallee: %a" Procname.pp
+      (Procdesc.get_proc_name caller_proc_desc)
+      Procname.pp callee_pname ;
+    CallProp.debug "\nsummary: " ;
+    List.iter (AbductiveDomain.pp_summary Format.std_formatter caller_astate)
+      ~f:(fun (title, value) -> CallProp.debug "%s: %s\n" title value) ;
+    CallProp.debug "actual: " ;
+    List.iter actuals ~f:(fun ((ab_val, _), _) -> CallProp.debug " %a " AbstractValue.pp ab_val) ;
+    CallProp.debug "\nend}" ;
+    CallProp.result "" ) ;
   let should_keep_at_most_one_disjunct =
     Option.exists Config.pulse_cut_to_one_path_procedures_pattern ~f:(fun regex ->
         Str.string_match regex (Procname.to_string callee_pname) 0 )
