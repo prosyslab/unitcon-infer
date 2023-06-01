@@ -14,6 +14,8 @@ open PulseOperations.Import
 
 type t = AbductiveDomain.t
 
+let check_pair = ref []
+
 let is_ptr_to_const formal_typ_opt =
   Option.exists formal_typ_opt ~f:(fun (formal_typ : Typ.t) ->
       match formal_typ.desc with Typ.Tptr (t, _) -> Typ.is_const t.quals | _ -> false )
@@ -316,8 +318,24 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
       ~actuals astate
   in
   let captured_formals = List.map captured_formals ~f:(fun (var, _, typ) -> (var, typ)) in
+  let call_pair = (Procdesc.get_proc_name caller_proc_desc, callee_pname) in
+  let check =
+    List.fold_left !check_pair ~init:false ~f:(fun e_check (caller, callee) ->
+        if
+          String.equal (caller |> Procname.to_string) (call_pair |> fst |> Procname.to_string)
+          && String.equal (callee |> Procname.to_string) (call_pair |> snd |> Procname.to_string)
+        then true
+        else e_check )
+  in
+  let empty_check =
+    List.fold_left (AbductiveDomain.pp_summary Format.std_formatter caller_astate) ~init:false
+      ~f:(fun e_check (_, value) -> if String.equal value "{ }" then true else e_check)
+  in
   if Int.equal (List.length actuals) 0 then ()
+  else if check then ()
+  else if empty_check then ()
   else (
+    check_pair := call_pair :: !check_pair ;
     CallProp.debug "\n{start\ncaller: %a\ncallee: %a" Procname.pp
       (Procdesc.get_proc_name caller_proc_desc)
       Procname.pp callee_pname ;
