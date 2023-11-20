@@ -55,16 +55,10 @@ include struct
   [@@deriving fields]
 end
 
-(*
-let yojson_of_t {proc_desc; payloads} =
-  [%yojson_of: Procname.t * Payloads.t] (Procdesc.get_proc_name proc_desc, payloads)
-*)
-
 let rm_char str =
   let str = Str.global_replace (Str.regexp "\n") "" str in
   let str = Str.replace_first (Str.regexp "^ +") "" str in
   Str.replace_first (Str.regexp " +$") "" str
-
 
 let yojson_of_t {proc_desc; payloads; callee_pnames} =
   let list =

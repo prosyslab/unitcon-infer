@@ -66,9 +66,9 @@ let of_id = function
       ; before_incremental_analysis= Delete
       ; before_caching_capture= Delete }
   | CallProp ->
-      { rel_path= "call_proposition"
+      { rel_path= "call_proposition.json"
       ; kind= File
-      ; before_incremental_analysis= Keep
+      ; before_incremental_analysis= Delete
       ; before_caching_capture= Delete }
   | CaptureDependencies ->
       { rel_path= buck_infer_deps_file_name
@@ -141,9 +141,9 @@ let of_id = function
       ; before_incremental_analysis= Keep
       ; before_caching_capture= Delete }
   | ErrorSummarys ->
-      { rel_path= "error_summarys"
+      { rel_path= "error_summarys.json"
       ; kind= File
-      ; before_incremental_analysis= Keep
+      ; before_incremental_analysis= Delete
       ; before_caching_capture= Delete }
   | NullsafeFileIssues ->
       { rel_path= "nullsafe_file_level"

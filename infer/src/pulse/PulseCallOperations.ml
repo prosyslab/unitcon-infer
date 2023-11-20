@@ -16,6 +16,17 @@ type t = AbductiveDomain.t
 
 let check_pair = ref []
 
+let cp_json json =
+  let oc =
+    Stdlib.open_out_gen [Open_append; Open_creat] 0o666
+      (ResultsDirEntryName.get_path ~results_dir:Config.toplevel_results_dir CallProp)
+  in
+  Yojson.Safe.to_channel oc json ;
+  Out_channel.newline oc ;
+  Out_channel.flush oc ;
+  Out_channel.close oc
+
+
 let is_ptr_to_const formal_typ_opt =
   Option.exists formal_typ_opt ~f:(fun (formal_typ : Typ.t) ->
       match formal_typ.desc with Typ.Tptr (t, _) -> Typ.is_const t.quals | _ -> false )
@@ -329,23 +340,31 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
   in
   let empty_check =
     List.fold_left (AbductiveDomain.pp_summary Format.std_formatter caller_astate) ~init:false
-      ~f:(fun e_check (_, value) -> if String.equal value "{ }" then true else e_check)
+      ~f:(fun e_check (_, value) -> if String.equal value "{ }" then true else e_check )
   in
   if Int.equal (List.length actuals) 0 then ()
   else if check then ()
   else if empty_check then ()
   else (
     check_pair := call_pair :: !check_pair ;
-    CallProp.debug "\n{start\ncaller: %a\ncallee: %a" Procname.pp
-      (Procdesc.get_proc_name caller_proc_desc)
-      Procname.pp callee_pname ;
-    CallProp.debug "\nsummary: " ;
-    List.iter (AbductiveDomain.pp_summary Format.std_formatter caller_astate)
-      ~f:(fun (title, value) -> CallProp.debug "%s: %s\n" title value) ;
-    CallProp.debug "actual: " ;
-    List.iter actuals ~f:(fun ((ab_val, _), _) -> CallProp.debug " %a " AbstractValue.pp ab_val) ;
-    CallProp.debug "\nend}" ;
-    CallProp.result "" ) ;
+    let caller = Procdesc.get_proc_name caller_proc_desc |> Procname.to_string in
+    let callee = callee_pname |> Procname.to_string in
+    let cond =
+      List.fold
+        ~f:(fun lst (title, value) -> (title, `String value) :: lst)
+        ~init:[]
+        (AbductiveDomain.pp_summary Format.std_formatter caller_astate)
+    in
+    let actual =
+      List.fold
+        ~f:(fun lst ((ab_val, _), _) -> Format.asprintf "%a" AbstractValue.pp ab_val :: lst)
+        ~init:[] actuals
+    in
+    let actual =
+      ( "actual"
+      , `String (List.fold ~f:(fun acc_str ab_val -> ab_val ^ " " ^ acc_str) ~init:"" actual) )
+    in
+    cp_json (`Assoc (("caller", `String caller) :: ("callee", `String callee) :: actual :: cond)) ) ;
   let should_keep_at_most_one_disjunct =
     Option.exists Config.pulse_cut_to_one_path_procedures_pattern ~f:(fun regex ->
         Str.string_match regex (Procname.to_string callee_pname) 0 )

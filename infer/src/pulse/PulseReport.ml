@@ -10,6 +10,17 @@ module L = Logging
 open PulseBasicInterface
 open PulseDomainInterface
 
+let es_json json =
+  let oc =
+    Stdlib.open_out_gen [Open_append; Open_creat] 0o666
+      (ResultsDirEntryName.get_path ~results_dir:Config.toplevel_results_dir ErrorSummarys)
+  in
+  Yojson.Safe.to_channel oc json ;
+  Out_channel.newline oc ;
+  Out_channel.flush oc ;
+  Out_channel.close oc
+
+
 let report ~is_suppressed ~latent proc_desc err_log diagnostic =
   let open Diagnostic in
   if is_suppressed && (not Config.pulse_report_issues_for_tests) && not Config.show_latent then ()
@@ -176,22 +187,24 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
           ~is_constant_deref_without_invalidation astate
       in
       if is_suppressed then L.d_printfln "suppressed error" ;
-      if Config.pulse_report_latent_issues then
-        ErrorSummary.debug "{start\nprocname: %s\n"
-          (Procdesc.get_proc_name proc_desc |> Procname.to_string) ;
-      List.iter (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
-        ~f:(fun (title, value) -> ErrorSummary.debug "%s: %s\n" title value) ;
-      ErrorSummary.debug "end}\n" ;
-      ErrorSummary.result "" ;
-      report ~latent:true ~is_suppressed proc_desc err_log
-        (AccessToInvalidAddress
-           { calling_context= []
-           ; invalid_address= address
-           ; invalidation= ConstantDereference IntLit.zero
-           ; invalidation_trace=
-               Immediate {location= Procdesc.get_loc proc_desc; history= ValueHistory.epoch}
-           ; access_trace
-           ; must_be_valid_reason= snd must_be_valid } ) ;
+      if Config.pulse_report_latent_issues then (
+        (let pname = Procdesc.get_proc_name proc_desc |> Procname.to_string in
+         let cond =
+           List.fold
+             ~f:(fun lst (title, value) -> (title, `String value) :: lst)
+             ~init:[]
+             (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
+         in
+         es_json (`Assoc (("procname", `String pname) :: cond)) ) ;
+        report ~latent:true ~is_suppressed proc_desc err_log
+          (AccessToInvalidAddress
+             { calling_context= []
+             ; invalid_address= address
+             ; invalidation= ConstantDereference IntLit.zero
+             ; invalidation_trace=
+                 Immediate {location= Procdesc.get_loc proc_desc; history= ValueHistory.epoch}
+             ; access_trace
+             ; must_be_valid_reason= snd must_be_valid } ) ) ;
       Some (LatentInvalidAccess {astate; address; must_be_valid; calling_context= []})
   | ISLErrorSummary {astate} ->
       Some (ISLLatentMemoryError astate)
@@ -206,12 +219,14 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
         is_suppressed tenv proc_desc ~is_nullptr_dereference ~is_constant_deref_without_invalidation
           astate
       in
-      ErrorSummary.debug "{start\nprocname: %s\n"
-        (Procdesc.get_proc_name proc_desc |> Procname.to_string) ;
-      List.iter (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
-        ~f:(fun (title, value) -> ErrorSummary.debug "%s: %s\n" title value) ;
-      ErrorSummary.debug "end}\n" ;
-      ErrorSummary.result "" ;
+      (let pname = Procdesc.get_proc_name proc_desc |> Procname.to_string in
+       let cond =
+         List.fold
+           ~f:(fun lst (title, value) -> (title, `String value) :: lst)
+           ~init:[]
+           (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
+       in
+       es_json (`Assoc (("procname", `String pname) :: cond)) ) ;
       match LatentIssue.should_report astate diagnostic with
       | `ReportNow ->
           if is_suppressed then L.d_printfln "ReportNow suppressed error" ;
