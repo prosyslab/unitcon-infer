@@ -118,11 +118,21 @@ let pp f {post; pre; path_condition; decompiler; need_specialization; topl; skip
     PathCondition.pp path_condition PostDomain.pp post PreDomain.pp pre pp_decompiler
     need_specialization SkippedCalls.pp skipped_calls PulseTopl.pp_state topl
 
-let pp_summary f {post; pre; path_condition;} =
+
+let pp_summary f {post; pre; path_condition} =
   let itv = PathCondition.pp_summary f path_condition in
-  let pre = F.asprintf "%a" PreDomain.pp_summary pre in
-  let post = F.asprintf "%a" PostDomain.pp_summary post in
-  itv @ [("Precond", pre); ("Postcond", post)]
+  let pre = F.asprintf "%a" PreDomain.pp_summary pre |> String.split ~on:';' in
+  let post = F.asprintf "%a" PostDomain.pp_summary post |> String.split ~on:';' in
+  match (pre, post) with
+  | [pre_stack; pre_heap], [post_stack; post_heap] ->
+      itv
+      @ [ ("Precond_Stack", pre_stack)
+        ; ("Precond_Heap", pre_heap)
+        ; ("Postcond_Stack", post_stack)
+        ; ("Postcond_Heap", post_heap) ]
+  | _ ->
+      itv
+
 
 let set_path_condition path_condition astate = {astate with path_condition}
 
@@ -643,7 +653,7 @@ let mk_initial tenv proc_name (proc_attrs : ProcAttributes.t) =
   in
   let initial_stack =
     List.fold formals_and_captured ~init:(PreDomain.empty :> BaseDomain.t).stack
-      ~f:(fun stack (formal, _, addr_loc) -> BaseStack.add formal addr_loc stack)
+      ~f:(fun stack (formal, _, addr_loc) -> BaseStack.add formal addr_loc stack )
   in
   let initial_heap =
     let register heap (_, _, (addr, _)) = BaseMemory.register_address addr heap in

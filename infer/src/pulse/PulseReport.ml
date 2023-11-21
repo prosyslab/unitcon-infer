@@ -195,7 +195,7 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
              ~init:[]
              (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
          in
-         es_json (`Assoc (("procname", `String pname) :: cond)) ) ;
+         es_json (`Assoc (("Procname", `String pname) :: cond)) ) ;
         report ~latent:true ~is_suppressed proc_desc err_log
           (AccessToInvalidAddress
              { calling_context= []
@@ -226,7 +226,7 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
            ~init:[]
            (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
        in
-       es_json (`Assoc (("procname", `String pname) :: cond)) ) ;
+       es_json (`Assoc (("Procname", `String pname) :: cond)) ) ;
       match LatentIssue.should_report astate diagnostic with
       | `ReportNow ->
           if is_suppressed then L.d_printfln "ReportNow suppressed error" ;

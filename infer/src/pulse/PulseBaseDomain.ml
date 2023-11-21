@@ -184,8 +184,8 @@ let pp fmt {heap; stack; attrs} =
   F.fprintf fmt "{@[<v1> roots=@[<hv>%a@];@;mem  =@[<hv>%a@];@;attrs=@[<hv>%a@];@]}" Stack.pp stack
     Memory.pp heap AddressAttributes.pp attrs
 
-let pp_summary fmt {heap; stack} =
-  F.fprintf fmt "Stack=@[%a@]; Heap=@[%a@]" Stack.pp stack Memory.pp heap
+
+let pp_summary fmt {heap; stack} = F.fprintf fmt "[%a];[%a]" Stack.pp stack Memory.pp heap
 
 module GraphVisit : sig
   val fold :
@@ -300,7 +300,7 @@ let reachable_addresses ?(var_filter = fun _ -> true) astate =
 
 let reachable_addresses_from ?(already_visited = AbstractValue.Set.empty) addresses astate =
   GraphVisit.fold_from_addresses addresses astate ~init:() ~already_visited ~finish:Fn.id
-    ~f:(fun () _ _ -> Continue ())
+    ~f:(fun () _ _ -> Continue () )
   |> fst
 
 

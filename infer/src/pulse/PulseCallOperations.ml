@@ -361,10 +361,9 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
         ~init:[] actuals
     in
     let actual =
-      ( "actual"
-      , `String (List.fold ~f:(fun acc_str ab_val -> ab_val ^ " " ^ acc_str) ~init:"" actual) )
+      ("Args", `String (List.fold ~f:(fun acc_str ab_val -> ab_val ^ " " ^ acc_str) ~init:"" actual))
     in
-    cp_json (`Assoc (("caller", `String caller) :: ("callee", `String callee) :: actual :: cond)) ) ;
+    cp_json (`Assoc (("Caller", `String caller) :: ("Callee", `String callee) :: actual :: cond)) ) ;
   let should_keep_at_most_one_disjunct =
     Option.exists Config.pulse_cut_to_one_path_procedures_pattern ~f:(fun regex ->
         Str.string_match regex (Procname.to_string callee_pname) 0 )
