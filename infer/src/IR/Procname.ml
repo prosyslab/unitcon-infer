@@ -1092,7 +1092,7 @@ let to_unique_id proc_name = F.asprintf "%a" pp_unique_id proc_name
 (** Convert a proc name to a string for the user to see *)
 let rec pp fmt = function
   | Java j ->
-      Java.pp Non_verbose fmt j
+      Java.pp Verbose fmt j
   | CSharp cs ->
       CSharp.pp Non_verbose fmt cs
   | C osig ->
