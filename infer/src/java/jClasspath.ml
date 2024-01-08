@@ -12,13 +12,28 @@ module L = Logging
 
 let split_classpath = String.split ~on:JFile.sep
 
+let class_path classpath =
+  let cp_dirs = String.split_on_chars classpath ~on:[':'] |> List.filter ~f:Sys.is_directory_exn in
+  (* Prevent errors when adding zip files, not JAR files, to the classpath *)
+  List.iter cp_dirs ~f:(fun dir ->
+      "find " ^ dir ^ " -type f -name \"*.zip\" -exec sh -c 'mv \"$0\" \"${0%.zip}.zipp\"' {} \;"
+      |> Sys.command |> ignore ) ;
+  let result = Javalib.class_path classpath in
+  List.iter cp_dirs ~f:(fun dir ->
+      "find " ^ dir ^ " -type f -name \"*.zipp\" -exec sh -c 'mv \"$0\" \"${0%.zipp}.zip\"' {} \;"
+      |> Sys.command |> ignore ) ;
+  result
+
+
 let classpath_of_paths paths =
   let of_path path =
     let full_path = Utils.filename_to_absolute ~root:Config.project_root path in
-    if ISys.file_exists full_path then Some full_path
-    else (
-      L.debug Capture Medium "Path %s not found" full_path ;
-      None )
+    match Sys.file_exists full_path with
+    | `Yes ->
+        Some full_path
+    | _ ->
+        L.debug Capture Medium "Path %s not found" full_path ;
+        None
   in
   let string_sep = Char.to_string JFile.sep in
   List.filter_map paths ~f:of_path |> String.concat ~sep:string_sep
@@ -62,7 +77,7 @@ let add_source_file =
       match String.Map.find map basename with
       | None ->
           (* Most common case: there is no conflict with the base name of the source file *)
-          Singleton current_source_file
+          Duplicate [(read_package_declaration current_source_file, current_source_file)]
       | Some (Singleton previous_source_file) ->
           (* Another source file with the same base name has been found.
              Reading the package from the source file to resolve the ambiguity
@@ -104,7 +119,7 @@ let load_from_verbose_output =
     match In_channel.input_line file_in with
     | None ->
         let classpath = classpath_of_paths (String.Set.elements roots @ paths) in
-        {classpath_channel= Javalib.class_path classpath; sources; classes}
+        {classpath_channel = class_path classpath; sources; classes}
     | Some line when Str.string_match class_filename_re line 0 -> (
         let path =
           try Str.matched_group 5 line
@@ -178,12 +193,7 @@ let search_sources () =
       initial_map
   | Some sourcepath ->
       Utils.directory_fold
-        (fun map p ->
-          if
-            Filename.check_suffix p "java"
-            || (Config.kotlin_capture && Filename.check_suffix p Config.kotlin_source_extension)
-          then add_source_file p map
-          else map )
+        (fun map p -> if Filename.check_suffix p "java" then add_source_file p map else map)
         initial_map sourcepath
 
 
@@ -195,7 +205,7 @@ let load_from_arguments classes_out_path =
     split Config.bootclasspath @ split Config.classpath @ String.Set.elements roots
     |> classpath_of_paths
   in
-  {classpath_channel= Javalib.class_path classpath; sources= search_sources (); classes}
+  {classpath_channel= class_path classpath; sources= search_sources (); classes}
 
 
 type source = FromVerboseOut of {verbose_out_file: string} | FromArguments of {path: string}
