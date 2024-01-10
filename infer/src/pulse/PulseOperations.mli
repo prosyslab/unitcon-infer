@@ -74,6 +74,7 @@ type t = AbductiveDomain.t
 
 val check_addr_access :
      PathContext.t
+  -> ?taint_op:bool
   -> ?must_be_valid_reason:Invalidation.must_be_valid_reason
   -> access_mode
   -> Location.t
@@ -136,6 +137,7 @@ val prune :
 
 val eval_deref :
      PathContext.t
+  -> ?taint_op:bool
   -> ?must_be_valid_reason:Invalidation.must_be_valid_reason
   -> Location.t
   -> Exp.t

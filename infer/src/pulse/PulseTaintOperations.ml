@@ -788,7 +788,7 @@ let taint_initial tenv proc_name (proc_attrs : ProcAttributes.t) astate =
     List.fold_map (ProcAttributes.get_pvar_formals proc_attrs) ~init:astate
       ~f:(fun astate (pvar, typ) ->
         let astate, actual_value =
-          PulseOperations.eval_deref PathContext.initial proc_attrs.loc (Lvar pvar) astate
+          PulseOperations.eval_deref PathContext.initial ~taint_op:true proc_attrs.loc (Lvar pvar) astate
           |> PulseResult.ok_exn
         in
         (astate, {ProcnameDispatcher.Call.FuncArg.exp= Lvar pvar; typ; arg_payload= actual_value}) )
