@@ -540,8 +540,8 @@ and () =
               var := b ;
               b )
             ( if show_in_help then
-              Printf.sprintf "Enable %s and disable all other checkers" config.id
-            else "" )
+                Printf.sprintf "Enable %s and disable all other checkers" config.id
+              else "" )
             [] (* do all the work in ~f *) []
           (* do all the work in ~f *)
         in
@@ -1525,9 +1525,11 @@ and filter_paths =
   CLOpt.mk_bool ~long:"filter-paths" ~default:true
     "Apply filters specified in $(b,--report_*) options. Disable for debugging."
 
+
 and find_missing_summary =
   CLOpt.mk_bool ~default:false ~long:"find-missing-summary"
     "Find the precondition for the error path."
+
 
 and force_delete_results_dir =
   CLOpt.mk_bool ~long:"force-delete-results-dir" ~default:false
@@ -1699,9 +1701,10 @@ and issues_tests =
     ~in_help:InferCommand.[(Report, manual_generic)]
     ~meta:"file" "Write a list of issues in a format suitable for tests to $(i,file)"
 
+
 and interproc =
-  CLOpt.mk_bool ~long:"interproc" ~default:false
-  "Make force alarm when interprocedure analyze"
+  CLOpt.mk_bool ~long:"interproc" ~default:false "Make force alarm when interprocedure analyze"
+
 
 and java_debug_source_file_info =
   CLOpt.mk_path_opt ~long:"java-debug-source-file-info" ~meta:"path"
@@ -2123,7 +2126,7 @@ and pulse_max_cfg_size =
 
 
 and pulse_max_disjuncts =
-  CLOpt.mk_int ~long:"pulse-max-disjuncts" ~default:20
+  CLOpt.mk_int ~long:"pulse-max-disjuncts" ~default:5
     "Under-approximate after $(i,int) disjunctions in the domain"
 
 
@@ -2582,9 +2585,11 @@ and scuba_tags =
     "add an extra set of strings (tagset) field to be set for each sample of scuba, format \
      <name>=(<value>,<value>,<value>|NONE)"
 
+
 and show_latent =
   CLOpt.mk_bool ~default:false ~long:"show-latent"
     "Not distinguish latent and manifest bug. Show all potential bug"
+
 
 and simple_lineage_include_builtins =
   CLOpt.mk_bool ~long:"simple-lineage-include-builtins"
@@ -2810,13 +2815,10 @@ and summaries_caches_max_size =
   CLOpt.mk_int ~long:"summaries-caches-max-size" ~default:500
     "The maximum amount of elements the summaries LRU caches can hold"
 
-and target_file_line =
-  CLOpt.mk_int ~long:"target-file-line" ~default:(-2)
-    "Make force alarm"
 
-and target_file_name =
-  CLOpt.mk_string ~long:"target-file-name" ~default:""
-    "Make force alarm"
+and target_file_line = CLOpt.mk_int ~long:"target-file-line" ~default:(-2) "Make force alarm"
+
+and target_file_name = CLOpt.mk_string ~long:"target-file-name" ~default:"" "Make force alarm"
 
 and test_determinator =
   CLOpt.mk_bool ~long:"test-determinator" ~default:false
