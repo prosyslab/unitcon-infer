@@ -26,7 +26,7 @@ type id =
   | LintDotty
   | LintIssues
   | Logs
-  | ErrorSummarys
+  | ErrorSummaries
   | NullsafeFileIssues
   | PerfEvents
   | ProcnamesLocks
@@ -140,8 +140,8 @@ let of_id = function
       ; kind= File
       ; before_incremental_analysis= Keep
       ; before_caching_capture= Delete }
-  | ErrorSummarys ->
-      { rel_path= "error_summarys.json"
+  | ErrorSummaries ->
+      { rel_path= "error_summaries.json"
       ; kind= File
       ; before_incremental_analysis= Delete
       ; before_caching_capture= Delete }

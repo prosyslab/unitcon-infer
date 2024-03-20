@@ -26,7 +26,7 @@ type id =
   | LintDotty  (** directory of linters' dotty debug output for CTL evaluation *)
   | LintIssues  (** directory of linters' issues *)
   | Logs  (** log file *)
-  | ErrorSummarys (** error summary file *)
+  | ErrorSummaries  (** error summary file *)
   | NullsafeFileIssues  (** file-wide issues of the nullsafe analysis *)
   | PerfEvents  (** file containing events for performance profiling *)
   | ProcnamesLocks

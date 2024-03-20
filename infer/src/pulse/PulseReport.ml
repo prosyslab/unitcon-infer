@@ -13,7 +13,7 @@ open PulseDomainInterface
 let es_json json =
   let oc =
     Stdlib.open_out_gen [Open_append; Open_creat] 0o666
-      (ResultsDirEntryName.get_path ~results_dir:Config.toplevel_results_dir ErrorSummarys)
+      (ResultsDirEntryName.get_path ~results_dir:Config.toplevel_results_dir ErrorSummaries)
   in
   Yojson.Safe.to_channel oc json ;
   Out_channel.newline oc ;
