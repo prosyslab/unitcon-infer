@@ -240,7 +240,7 @@ module Sh = struct
         if Segs.is_empty heap then
           Format.fprintf fs
             ( if first then if List.is_empty djns then "  emp" else ""
-            else "@ @<5>∧ emp" )
+              else "@ @<5>∧ emp" )
         else
           pp_heap x
             ~pre:(if first then "  " else "@ @<2>∧ ")
@@ -856,11 +856,11 @@ module Xsh = struct
              () )]
     ;
     ( if Var.Set.is_empty xs || is_false xq then xq
-    else
-      let vx =
-        Var.Context.with_xs (Var.Set.union xs (Var.Context.xs vx)) vx
-      in
-      (q, vx) |> check invariant )
+      else
+        let vx =
+          Var.Context.with_xs (Var.Set.union xs (Var.Context.xs vx)) vx
+        in
+        (q, vx) |> check invariant )
     |>
     [%Dbg.retn fun {pf} -> pf "%a" pp]
 
@@ -907,8 +907,7 @@ module Xsh = struct
         assert (
           let gain = Var.Context.diff (Sh.fv q') (snd xq) in
           let gain = Var.Set.(diff (diff gain wrt) (xs xq')) in
-          Var.Set.is_empty gain || fail "gain: {@[%a@]}" Var.Set.pp gain () )
-        )
+          Var.Set.is_empty gain || fail "gain: {@[%a@]}" Var.Set.pp gain () ) )
     @@ fun () ->
     let q, vx = extend_voc wrt xq in
     Var.Fresh.gen vx (f q)
@@ -938,8 +937,7 @@ module Xsh = struct
           let gain = Var.Context.diff (Sh.fv q') vx1 in
           let gain = Var.Context.diff gain vx2 in
           let gain = Var.Set.(diff gain (xs xq')) in
-          Var.Set.is_empty gain || fail "gain: {@[%a@]}" Var.Set.pp gain () )
-        )
+          Var.Set.is_empty gain || fail "gain: {@[%a@]}" Var.Set.pp gain () ) )
     @@ fun () ->
     let no_clash1, clash1 = diff_inter (xs xq1) xq2 in
     let no_clash2, clash2 = diff_inter (xs xq2) xq1 in
@@ -1081,17 +1079,17 @@ module Xsh = struct
     [%Dbg.call fun {pf} -> pf " %i@ %a" !count_simplify pp_raw xq]
     ;
     ( if is_false xq then false_
-    else
-      lift xq ~f:(fun q vx ->
-          let q = Sh.propagate_context Context.empty q vx in
-          if Sh.is_false q then Sh.false_
-          else
-            let q' =
-              Sh.simplify (Var.Context.xs !vx) Var.Set.empty
-                Context.Subst.empty q vx
-            in
-            Var.Fresh.inter_xs (Sh.fv q') vx ;
-            q' ) )
+      else
+        lift xq ~f:(fun q vx ->
+            let q = Sh.propagate_context Context.empty q vx in
+            if Sh.is_false q then Sh.false_
+            else
+              let q' =
+                Sh.simplify (Var.Context.xs !vx) Var.Set.empty
+                  Context.Subst.empty q vx
+              in
+              Var.Fresh.inter_xs (Sh.fv q') vx ;
+              q' ) )
     |>
     [%Dbg.retn fun {pf} xq' ->
       pf "%a" pp_raw xq' ;

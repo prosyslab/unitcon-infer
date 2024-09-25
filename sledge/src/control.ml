@@ -182,10 +182,10 @@ module RandomQueue (Elt : Elt) : QueueS with type elt = Elt.t = struct
         ; recent_weight= elt_weight
         ; frontier=
             ( if RAL.is_empty q.recent then q.frontier
-            else
-              M.update elt_weight q.frontier ~f:(function
-                | Some data -> Some (RAL.append q.recent data)
-                | None -> Some q.recent ) )
+              else
+                M.update elt_weight q.frontier ~f:(function
+                  | Some data -> Some (RAL.append q.recent data)
+                  | None -> Some q.recent ) )
         ; frontier_weight=
             q.frontier_weight
             +. Float.of_int (RAL.length q.recent)
@@ -226,7 +226,7 @@ module RandomQueue (Elt : Elt) : QueueS with type elt = Elt.t = struct
                    ; recent_weight= key
                    ; frontier=
                        ( if RAL.is_empty data then M.remove key q.frontier
-                       else M.add ~key ~data q.frontier )
+                         else M.add ~key ~data q.frontier )
                    ; frontier_weight= q.frontier_weight -. w
                    ; last= Add_or_pop_frontier } ) ) )
         ~finish:(fun _ ->
@@ -1136,7 +1136,7 @@ struct
         exec_call {call with callee} ams wl
     | Call
         ( {callee= Indirect {ptr= callee; candidates}; areturn; return} as
-        call ) -> (
+          call ) -> (
       match resolve_callee pgm tid callee state with
       | [] -> exec_skip_func areturn return ams wl
       | callees ->

@@ -13,7 +13,6 @@ module Trm1 = struct
   type compare [@@deriving compare, equal, sexp]
 
   type arith = (t, compare) Arithmetic.t
-
   and sized = {seq: t; siz: t}
 
   and t =
@@ -128,7 +127,7 @@ module Trm3 = struct
       | Apply (f, [||]) -> pf "%a" Funsym.pp f
       | Apply
           ( ( (Rem | BitAnd | BitOr | BitXor | BitShl | BitLshr | BitAshr)
-            as f )
+              as f )
           , [|x; y|] ) ->
           pf "(%a@ %a@ %a)" pp x Funsym.pp f pp y
       | Apply (f, es) ->
