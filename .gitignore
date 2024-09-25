@@ -129,7 +129,6 @@ buck-out/
 /infer/man/man1/*.1
 /infer/man/man1/*.1.gz
 
-/infer/src/base/Version.ml
 /infer/models/java/models/
 /infer/models/models.jar
 /infer/lib/java/models.jar
