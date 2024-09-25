@@ -6,12 +6,37 @@
 (env
  (debug
   (flags
-   (-strict-formats -strict-sequence -short-paths -bin-annot -keep-locs
-     -keep-docs -g -w +a -w @unexpected-docstring -w -fragile-match -w
-     -missing-record-field-pattern -w -not-principal -w
-     -duplicate-definitions -w -name-out-of-scope -w -disambiguated-name -w
-     -open-shadow-identifier -w -eliminated-optional-arguments -w
-     -unused-open-bang -w -missing-mli))
+   (-strict-formats
+    -strict-sequence
+    -short-paths
+    -bin-annot
+    -keep-locs
+    -keep-docs
+    -g
+    -w
+    +a
+    -w
+    @unexpected-docstring
+    -w
+    -fragile-match
+    -w
+    -missing-record-field-pattern
+    -w
+    -not-principal
+    -w
+    -duplicate-definitions
+    -w
+    -name-out-of-scope
+    -w
+    -disambiguated-name
+    -w
+    -open-shadow-identifier
+    -w
+    -eliminated-optional-arguments
+    -w
+    -unused-open-bang
+    -w
+    -missing-mli))
   (ocamlopt_flags (-O3))
   (env-vars
    (PPX_DBG_ENABLED 1))
@@ -34,8 +59,15 @@
 (library
  (name ppx_sledge)
  (kind ppx_rewriter)
- (libraries ppx_compare ppx_enumerate ppx_expect ppx_here ppx_inline_test
-   ppx_let ppx_sexp_conv ppx_sexp_value)
+ (libraries
+  ppx_compare
+  ppx_enumerate
+  ppx_expect
+  ppx_here
+  ppx_inline_test
+  ppx_let
+  ppx_sexp_conv
+  ppx_sexp_value)
  (preprocess no_preprocessing))
 
 (subdir
@@ -103,10 +135,29 @@
   (name sledge_cli)
   (public_name sledge)
   (package sledge)
-  (libraries apron apron.boxMPQ core ctypes ctypes.foreign dbg
-    dune-build-info llvm llvm.analysis llvm.bitwriter llvm.ipo llvm.irreader
-    llvm.linker llvm.passmgr_builder llvm.scalar_opts llvm.target memtrace
-    shexp.process yojson nonstdlib sledge smtlib-utils)
+  (libraries
+   apron
+   apron.boxMPQ
+   core
+   ctypes
+   ctypes.foreign
+   dbg
+   dune-build-info
+   llvm
+   llvm.analysis
+   llvm.bitwriter
+   llvm.ipo
+   llvm.irreader
+   llvm.linker
+   llvm.passmgr_builder
+   llvm.scalar_opts
+   llvm.target
+   memtrace
+   shexp.process
+   yojson
+   nonstdlib
+   sledge
+   smtlib-utils)
   (flags
    (:standard -w -no-cmx-file -open NS -open Sledge))
   (preprocess

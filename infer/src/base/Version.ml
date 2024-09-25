@@ -18,7 +18,7 @@ let minor = 1
 
 let patch = 0
 
-let commit = "d4e1eb909"
+let commit = "82b4a324a"
 
 let branch = "main"
 
@@ -51,7 +51,7 @@ let hack_enabled = is_yes "no"
 
 let java_enabled = is_yes "yes"
 
-let java_version = int_of_string_opt "8"
+let java_version = int_of_string_opt "11"
 
 let xcode_enabled = is_not_no "no"
 

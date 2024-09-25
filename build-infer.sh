@@ -155,6 +155,7 @@ install_opam_deps () {
         locked=.locked
     fi
     opam install --deps-only "$INFER_ROOT"/opam/infer.opam$locked &&
+    opam upgrade dune ppx_blob &&
     if [ -n "$SANDCASTLE" ]; then
         opam pin list | grep yojson || opam pin add yojson "${DEPENDENCIES_DIR}/yojson-1.7.0fix"
     fi

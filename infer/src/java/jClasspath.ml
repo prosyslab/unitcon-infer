@@ -16,11 +16,11 @@ let class_path classpath =
   let cp_dirs = String.split_on_chars classpath ~on:[':'] |> List.filter ~f:Sys.is_directory_exn in
   (* Prevent errors when adding zip files, not JAR files, to the classpath *)
   List.iter cp_dirs ~f:(fun dir ->
-      "find " ^ dir ^ " -type f -name \"*.zip\" -exec sh -c 'mv \"$0\" \"${0%.zip}.zipp\"' {} \;"
+      "find " ^ dir ^ " -type f -name \"*.zip\" -exec sh -c 'mv \"$0\" \"${0%.zip}.zipp\"' {} ;"
       |> Sys.command |> ignore ) ;
   let result = Javalib.class_path classpath in
   List.iter cp_dirs ~f:(fun dir ->
-      "find " ^ dir ^ " -type f -name \"*.zipp\" -exec sh -c 'mv \"$0\" \"${0%.zipp}.zip\"' {} \;"
+      "find " ^ dir ^ " -type f -name \"*.zipp\" -exec sh -c 'mv \"$0\" \"${0%.zipp}.zip\"' {} ;"
       |> Sys.command |> ignore ) ;
   result
 

@@ -1,4 +1,4 @@
-(lang dune 2.0)
+(lang dune 3.6)
 
 ; Copyright (c) Facebook, Inc. and its affiliates.
 ;
