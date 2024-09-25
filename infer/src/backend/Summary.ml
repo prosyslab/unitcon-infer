@@ -60,6 +60,7 @@ let rm_char str =
   let str = Str.replace_first (Str.regexp "^ +") "" str in
   Str.replace_first (Str.regexp " +$") "" str
 
+
 let yojson_of_t {proc_desc; payloads; callee_pnames} =
   let list =
     PulseSummary.pp_summary F.std_formatter (match payloads.pulse with Some s -> s | None -> [])

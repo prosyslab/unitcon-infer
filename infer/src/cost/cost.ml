@@ -140,7 +140,7 @@ module InstrBasicCostWithReason = struct
 
   let get_call_cost_record tenv
       ( {inferbo_invariant_map; integer_type_widths; inferbo_get_summary; get_summary; get_formals}
-      as extras ) cfg instr_node callee_pname ret args captured_vars location =
+        as extras ) cfg instr_node callee_pname ret args captured_vars location =
     let fun_arg_list =
       List.map args ~f:(fun (exp, typ) ->
           ProcnameDispatcher.Call.FuncArg.{exp; typ; arg_payload= ()} )
@@ -337,16 +337,16 @@ module Check = struct
     if not (is_report_suppressed pname) then
       CostIssues.CostKindMap.iter2 CostIssues.enabled_cost_map cost
         ~f:(fun
-             kind
-             CostIssues.
-               { name
-               ; unreachable_issue
-               ; infinite_issue
-               ; expensive_issue
-               ; top_and_unreachable
-               ; expensive }
-             cost
-           ->
+            kind
+            CostIssues.
+              { name
+              ; unreachable_issue
+              ; infinite_issue
+              ; expensive_issue
+              ; top_and_unreachable
+              ; expensive }
+            cost
+          ->
           let report =
             mk_report proc_desc pname err_log (Procdesc.get_loc proc_desc) ~name
               ~is_autoreleasepool_trace:(is_autoreleasepool_trace kind) cost

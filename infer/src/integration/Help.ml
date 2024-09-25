@@ -148,18 +148,18 @@ let list_issue_types () =
   IssueType.all_issues ()
   |> List.iter
        ~f:(fun
-            ({ IssueType.unique_id
-             ; checker
-             ; visibility
-             ; user_documentation=
-                 _
-                 (* do not show this as this can be a big multi-line string and not tool-friendly *)
-             ; default_severity
-             ; enabled
-             ; hum
-             ; doc_url
-             ; linters_def_file } [@warning "+9"] )
-          ->
+           ({ IssueType.unique_id
+            ; checker
+            ; visibility
+            ; user_documentation=
+                _
+                (* do not show this as this can be a big multi-line string and not tool-friendly *)
+            ; default_severity
+            ; enabled
+            ; hum
+            ; doc_url
+            ; linters_def_file } [@warning "+9"] )
+         ->
          L.result "%s:%s:%s:%s:%b:%s:%s:%s@;" unique_id hum
            (IssueType.string_of_visibility visibility)
            (IssueType.string_of_severity default_severity)

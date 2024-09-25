@@ -1373,8 +1373,11 @@ let abstract analysis_data p = abstract_ analysis_data true p
 let abstract_no_symop analysis_data p = abstract_ analysis_data false p
 
 let lifted_abstract ({InterproceduralAnalysis.tenv; _} as analysis_data) pset =
-  let f p = if Config.find_missing_summary then Some (abstract analysis_data p)
-            else (if Prover.check_inconsistency tenv p then None else Some (abstract analysis_data p)) in
+  let f p =
+    if Config.find_missing_summary then Some (abstract analysis_data p)
+    else if Prover.check_inconsistency tenv p then None
+    else Some (abstract analysis_data p)
+  in
   let abstracted_pset = Propset.map_option tenv f pset in
   abstracted_pset
 

@@ -269,7 +269,7 @@ let nullable_methods_with_nonnull_alternatives_list =
 let nullable_method_with_nonnull_alternatives_nullability_list =
   let result =
     List.map nullable_methods_with_nonnull_alternatives_list
-      ~f:(fun (nullability, method_descr, _) -> (nullability, method_descr))
+      ~f:(fun (nullability, method_descr, _) -> (nullability, method_descr) )
   in
   List.iter result ~f:(fun ((ret_nullability, _param_nullability), _) ->
       if not (Bool.equal ret_nullability n) then
@@ -709,7 +709,7 @@ let true_on_null_table = mk_table true_on_null_list
 let nonnull_alternatives_table =
   let method_descr_to_alternative =
     List.map nullable_methods_with_nonnull_alternatives_list
-      ~f:(fun (_, method_descr, alternative) -> (alternative, method_descr))
+      ~f:(fun (_, method_descr, alternative) -> (alternative, method_descr) )
   in
   mk_table method_descr_to_alternative
 

@@ -710,7 +710,7 @@ module Attribute = struct
   let pp fmt t =
     let pp_constr fmt c =
       StarvationModels.(
-        match c with ForUIThread -> "UI" | ForNonUIThread -> "BG" | ForUnknownThread -> "Unknown")
+        match c with ForUIThread -> "UI" | ForNonUIThread -> "BG" | ForUnknownThread -> "Unknown" )
       |> F.pp_print_string fmt
     in
     match t with

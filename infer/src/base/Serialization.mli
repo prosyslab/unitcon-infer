@@ -34,5 +34,5 @@ val write_to_file : 'a serializer -> data:'a -> DB.filename -> unit
 (** Serialize into a file writing value *)
 
 val generate_keys : unit -> int * int * int
-  [@@warning "-32"]
+[@@warning "-32"]
 (** Generate new (random) serialization keys, to be used in an ocaml toplevel *)

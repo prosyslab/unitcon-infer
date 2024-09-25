@@ -17,15 +17,15 @@ val monospaced_to_string : string -> string
 (** wrap into a monospaced block *)
 
 val wrap_code : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a -> unit
-  [@@warning "-32"]
+[@@warning "-32"]
 (** used to combine pp together, wrap content into a code block *)
 
 val pp_code : Format.formatter -> string -> unit
-  [@@warning "-32"]
+[@@warning "-32"]
 (** pp to wrap into a code block *)
 
 val wrap_bold : (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a -> unit
-  [@@warning "-32"]
+[@@warning "-32"]
 (** used to combine pp together, wrap content into a bold block *)
 
 val pp_bold : Format.formatter -> string -> unit

@@ -302,11 +302,11 @@ module PulseTransferFunctions = struct
     match (lhs : Exp.t) with
     | Lindex (arr, index) ->
         (let open PulseResult.Let_syntax in
-        let* _astate, (aw_array, _history) = PulseOperations.eval path Read loc arr astate in
-        let+ _astate, (aw_index, _history) = PulseOperations.eval path Read loc index astate in
-        let topl_event = PulseTopl.ArrayWrite {aw_array; aw_index} in
-        let keep = AbductiveDomain.get_reachable astate in
-        AbductiveDomain.Topl.small_step loc ~keep topl_event astate)
+         let* _astate, (aw_array, _history) = PulseOperations.eval path Read loc arr astate in
+         let+ _astate, (aw_index, _history) = PulseOperations.eval path Read loc index astate in
+         let topl_event = PulseTopl.ArrayWrite {aw_array; aw_index} in
+         let keep = AbductiveDomain.get_reachable astate in
+         AbductiveDomain.Topl.small_step loc ~keep topl_event astate )
         |> PulseResult.ok (* don't emit Topl event if evals fail *) |> Option.value ~default:astate
     | _ ->
         astate
@@ -926,7 +926,7 @@ let analyze ({InterproceduralAnalysis.tenv; proc_desc; err_log} as analysis_data
     in
     let initial =
       with_html_debug_node (Procdesc.get_start_node proc_desc) ~desc:"initial state creation"
-        ~f:(fun () -> (initial_disjuncts, initial_non_disj))
+        ~f:(fun () -> (initial_disjuncts, initial_non_disj) )
     in
     match DisjunctiveAnalyzer.compute_post analysis_data ~initial proc_desc with
     | Some (posts, non_disj_astate) ->

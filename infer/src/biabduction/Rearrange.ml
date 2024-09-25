@@ -164,8 +164,8 @@ let rec create_struct_values analysis_data pname tenv orig_prop footprint_part k
         (* In this case, we lift t to the t array. *)
         let t', mk_typ_f =
           match t.Typ.desc with
-          | Typ.Tptr (t', _) -> (
-              (t', function desc -> Typ.mk ~default:t desc) )
+          | Typ.Tptr (t', _) ->
+              (t', function desc -> Typ.mk ~default:t desc)
           | _ ->
               (t, fun desc -> Typ.mk desc)
         in
@@ -1217,10 +1217,10 @@ let check_dereference_error tenv pdesc (prop : Prop.normal Prop.t) lexp loc =
         get_relevant_attributes root_no_offset
   in
   let condition =
-    if Config.find_missing_summary
-      then false
-      else Prover.check_zero tenv (Exp.root_of_lexp root) || Option.is_some nullable_var_opt in
-  ( if condition then
+    if Config.find_missing_summary then false
+    else Prover.check_zero tenv (Exp.root_of_lexp root) || Option.is_some nullable_var_opt
+  in
+  if condition then (
     let deref_str =
       match nullable_var_opt with
       | Some str ->
@@ -1232,14 +1232,13 @@ let check_dereference_error tenv pdesc (prop : Prop.normal Prop.t) lexp loc =
       Errdesc.explain_dereference pname tenv ~use_buckets:true
         ~is_nullable:(Option.is_some nullable_var_opt) deref_str prop loc
     in
-    L.(debug Analysis Verbose) "@\nverbose error path: %a@@\n" (Prop.pp_prop Pp.text) prop; 
-    Prop.d_prop prop;
+    L.(debug Analysis Verbose) "@\nverbose error path: %a@@\n" (Prop.pp_prop Pp.text) prop ;
+    Prop.d_prop prop ;
     if Localise.is_empty_vector_access_desc err_desc then
       raise (Exceptions.Empty_vector_access (err_desc, __POS__))
-    else 
-      ErrorSummary.debug "@\n{start@\n \"function\": %a@\n" Procname.pp pname;
-      ErrorSummary.debug "\"prop\": %a @\nend}@\n" (Prop.pp_prop Pp.text) prop;
-      raise (Exceptions.Null_dereference (err_desc, __POS__)) ) ;
+    else ErrorSummary.debug "@\n{start@\n \"function\": %a@\n" Procname.pp pname ;
+    ErrorSummary.debug "\"prop\": %a @\nend}@\n" (Prop.pp_prop Pp.text) prop ;
+    raise (Exceptions.Null_dereference (err_desc, __POS__)) ) ;
   match attribute_opt with
   | Some (Apred (Adangling dk, _)) ->
       let deref_str = Localise.deref_str_dangling (Some dk) in

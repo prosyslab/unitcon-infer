@@ -164,7 +164,7 @@ struct
   let (`UnderApproximateAfter disjunct_limit) = DConfig.join_policy
 
   module Domain = struct
-    (** a list [\[x1; x2; ...; xN\]] represents a disjunction [x1 ∨ x2 ∨ ... ∨ xN] *)
+    (** a list [[x1; x2; ...; xN]] represents a disjunction [x1 ∨ x2 ∨ ... ∨ xN] *)
     type t = T.DisjDomain.t list * T.NonDisjDomain.t
 
     let append_no_duplicates_up_to leq ~limit from ~into ~into_length =
@@ -285,8 +285,8 @@ struct
               T.exec_instr (pre_disjunct, non_disj) analysis_data node instr
             in
             ( if Config.write_html then
-              let n = List.length disjuncts' in
-              L.d_printfln "@]@\n@[Got %d disjunct%s back@]" n (if Int.equal n 1 then "" else "s")
+                let n = List.length disjuncts' in
+                L.d_printfln "@]@\n@[Got %d disjunct%s back@]" n (if Int.equal n 1 then "" else "s")
             ) ;
             let post_disj', n = Domain.join_up_to ~limit ~into:post disjuncts' in
             ((post_disj', non_disj' :: non_disj_astates), n) ) )
@@ -534,7 +534,7 @@ module AbstractInterpreterCommon (TransferFunctions : NodeTransferFunctions) = s
   (* shadowed for HTML debug *)
   let compute_pre cfg node inv_map =
     AnalysisCallbacks.html_debug_new_node_session (Node.underlying_node node) ~kind:`ComputePre
-      ~pp_name:(TransferFunctions.pp_session_name node) ~f:(fun () -> compute_pre cfg node inv_map)
+      ~pp_name:(TransferFunctions.pp_session_name node) ~f:(fun () -> compute_pre cfg node inv_map )
 
 
   (** compute and return an invariant map for [pdesc] *)

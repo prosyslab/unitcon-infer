@@ -257,7 +257,7 @@ let exec_instr proc_name closure_maps instr =
               Load {id; e= e'; root_typ; typ= root_typ; loc} ) ]
     | Store {e1; root_typ; typ; e2; loc} ->
         [ try_keep_original2 ~default:instr e1 (exec_exp proc_name e1) e2 (exec_exp proc_name e2)
-            ~f:(fun e1' e2' -> Store {e1= e1'; root_typ; typ; e2= e2'; loc}) ]
+            ~f:(fun e1' e2' -> Store {e1= e1'; root_typ; typ; e2= e2'; loc} ) ]
     | Call (ret_id_typ, origin_call_exp, origin_args, loc, call_flags) ->
         (* Call instr specialization. We want to:
            - When the function called is a known closure:
@@ -277,10 +277,10 @@ let exec_instr proc_name closure_maps instr =
                 Call (ret_id_typ, converted_call_exp, converted_args, loc, call_flags) ) ]
     | Prune (origin_exp, loc, is_true_branch, if_kind) ->
         [ try_keep_original ~default:instr origin_exp (exec_exp proc_name origin_exp)
-            ~f:(fun converted_exp -> Prune (converted_exp, loc, is_true_branch, if_kind)) ]
+            ~f:(fun converted_exp -> Prune (converted_exp, loc, is_true_branch, if_kind) ) ]
     | Metadata metadata ->
         [ try_keep_original ~default:instr metadata (exec_metadata proc_name metadata)
-            ~f:(fun metadata' -> Metadata metadata') ]
+            ~f:(fun metadata' -> Metadata metadata' ) ]
   in
   Array.of_list res
 

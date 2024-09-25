@@ -17,7 +17,7 @@ let run_buck2_build prog buck2_build_args =
   L.debug Capture Verbose "%s %s@." prog (List.to_string ~f:Fn.id buck2_build_args) ;
   let infer_args =
     Option.fold (Sys.getenv CommandLineOption.args_env_var) ~init:"--fcp-syntax-only"
-      ~f:(fun acc arg -> Printf.sprintf "%s%c%s" acc CommandLineOption.env_var_sep arg)
+      ~f:(fun acc arg -> Printf.sprintf "%s%c%s" acc CommandLineOption.env_var_sep arg )
   in
   let extend_env = [(CommandLineOption.args_env_var, infer_args)] in
   Buck.wrap_buck_call ~extend_env ~buck_mode:ClangV2 ~label:"build" (prog :: buck2_build_args)

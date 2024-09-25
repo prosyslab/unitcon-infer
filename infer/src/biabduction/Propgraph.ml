@@ -243,9 +243,7 @@ let pp_proplist pe0 s (base_prop, extract_stack) f plist =
         let x = add_base_stack _x in
         match pe.kind with
         | TEXT ->
-              F.fprintf f "%a %a" (Prop.pp_prop pe) x
-              (pp_seq_newline (n + 1))
-              l
+            F.fprintf f "%a %a" (Prop.pp_prop pe) x (pp_seq_newline (n + 1)) l
         | HTML ->
             F.fprintf f "%s %d of %d:@\n%a@\n%a" s n num (Prop.pp_prop pe) x
               (pp_seq_newline (n + 1))

@@ -34,9 +34,9 @@ type event =
 and t = private
   | Epoch  (** start of time *)
   | Sequence of event * t
-      (** [Sequence \[event, hist\]] represents an event [event] occurring *after* [hist].
-          Invariant: the timestamp of [event] is greater than all the (local, i.e. not inside
-          function calls) timestamps in [hist]. *)
+      (** [Sequence [event, hist]] represents an event [event] occurring *after* [hist]. Invariant:
+          the timestamp of [event] is greater than all the (local, i.e. not inside function calls)
+          timestamps in [hist]. *)
   | InContext of
       { main: t  (** trace of the "main" value being traced *)
       ; context: t list  (** contextual traces, eg conditionals that the path is under *) }

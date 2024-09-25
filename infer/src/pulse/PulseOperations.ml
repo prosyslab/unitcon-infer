@@ -69,15 +69,15 @@ include Import
 
 type t = AbductiveDomain.t
 
-let check_addr_access path ?(taint_op=false) ?must_be_valid_reason access_mode location (address, history) astate =
+let check_addr_access path ?(taint_op = false) ?must_be_valid_reason access_mode location
+    (address, history) astate =
   let access_trace = Trace.Immediate {location; history} in
   let filename = location.Location.file |> SourceFile.to_rel_path in
   let linenum = location.Location.line in
   if
     String.equal filename Config.target_file_name
     && Int.equal linenum Config.target_file_line
-    && Config.interproc |> not
-    && taint_op |> not
+    && Config.interproc |> not && taint_op |> not
   then
     Error (Invalidation.ConstantDereference IntLit.zero, access_trace)
     |> Result.map_error ~f:(fun (invalidation, invalidation_trace) ->
@@ -360,7 +360,9 @@ let prune path location ~condition astate =
 
 let eval_deref path ?taint_op ?must_be_valid_reason location exp astate =
   let* astate, addr_hist = eval path Read location exp astate in
-  let+ astate = check_addr_access path ?taint_op ?must_be_valid_reason Read location addr_hist astate in
+  let+ astate =
+    check_addr_access path ?taint_op ?must_be_valid_reason Read location addr_hist astate
+  in
   Memory.eval_edge addr_hist Dereference astate
 
 
@@ -687,10 +689,10 @@ let get_dynamic_type_unreachable_values vars astate =
   let res =
     List.fold unreachable_addrs ~init:[] ~f:(fun res addr ->
         (let open IOption.Let_syntax in
-        let* attrs = AbductiveDomain.AddressAttributes.find_opt addr astate in
-        let* typ = Attributes.get_dynamic_type attrs in
-        let+ var = find_var_opt astate addr in
-        (var, addr, typ) :: res )
+         let* attrs = AbductiveDomain.AddressAttributes.find_opt addr astate in
+         let* typ = Attributes.get_dynamic_type attrs in
+         let+ var = find_var_opt astate addr in
+         (var, addr, typ) :: res )
         |> Option.value ~default:res )
   in
   List.map ~f:(fun (var, _, typ) -> (var, typ)) res

@@ -477,19 +477,19 @@ let check_inheritance_rule_for_params analysis_data find_canonical_duplicate loc
       (* Check the rule for each pair of base and overridden param *)
       List.iteri base_and_overridden_params
         ~f:(fun
-             index
-             ( AnnotatedSignature.{param_annotated_type= {nullability= annotated_nullability_base}}
-             , AnnotatedSignature.
-                 { mangled= overridden_param_name
-                 ; param_annotated_type= {nullability= annotated_nullability_overridden} } )
-           ->
+            index
+            ( AnnotatedSignature.{param_annotated_type= {nullability= annotated_nullability_base}}
+            , AnnotatedSignature.
+                { mangled= overridden_param_name
+                ; param_annotated_type= {nullability= annotated_nullability_overridden} } )
+          ->
           check_inheritance_rule_for_param analysis_data find_canonical_duplicate loc ~nullsafe_mode
             ~overridden_param_name ~base_proc_name
             ~param_index:
               ( if has_implicit_this_param then
-                (* The first param in the list is implicit (not real part of the signature) and should not be counted *)
-                index - 1
-              else index )
+                  (* The first param in the list is implicit (not real part of the signature) and should not be counted *)
+                  index - 1
+                else index )
             ~base_nullability:(AnnotatedNullability.get_nullability annotated_nullability_base)
             ~overridden_proc_name
             ~overridden_nullability:

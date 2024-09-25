@@ -258,7 +258,7 @@ let process_splitting actual_pre sub1 sub2 frame missing_pi missing_sigma frame_
     and path position *)
 let find_dereference_without_null_check_in_inst = function
   | Predicates.Iupdate (Some true, _, n, pos) | Predicates.Irearrange (Some true, _, n, pos) ->
-    if Config.find_missing_summary then None else Some (n, pos)
+      if Config.find_missing_summary then None else Some (n, pos)
   | _ ->
       None
 
@@ -313,7 +313,7 @@ let check_dereferences caller_pname tenv callee_pname actual_pre sub spec_pre fo
       if Exp.equal e_sub Exp.zero then
         match find_dereference_without_null_check_in_sexp sexp with
         | Some (_, pos) ->
-          if Config.find_missing_summary then None else Some pos
+            if Config.find_missing_summary then None else Some pos
         | None ->
             None
       else None
@@ -342,7 +342,7 @@ let check_dereferences caller_pname tenv callee_pname actual_pre sub spec_pre fo
   in
   let check_hpred = function
     | Predicates.Hpointsto (lexp, se, _) ->
-      if Config.find_missing_summary then None else check_dereference (Exp.root_of_lexp lexp) se
+        if Config.find_missing_summary then None else check_dereference (Exp.root_of_lexp lexp) se
     | _ ->
         None
   in
@@ -681,7 +681,12 @@ let prop_copy_footprint_pure tenv p1 p2 =
 
 
 (** check if an expression is an exception *)
-let exp_is_exn = function Exp.Exn _ -> if Config.find_missing_summary then false else true | _ -> false
+let exp_is_exn = function
+  | Exp.Exn _ ->
+      if Config.find_missing_summary then false else true
+  | _ ->
+      false
+
 
 (** check if a prop is an exception *)
 let prop_is_exn pname prop =
@@ -773,14 +778,12 @@ let combine ({InterproceduralAnalysis.proc_desc= caller_pdesc; tenv; _} as analy
       else
         List.map
           ~f:(fun (p, path_post) ->
-            (p, Paths.Path.add_call (include_subtrace callee_pname) path_pre callee_pname path_post)
-            )
+            (p, Paths.Path.add_call (include_subtrace callee_pname) path_pre callee_pname path_post) )
           posts
     in
     List.map
       ~f:(fun (p, path) ->
-        post_process_post analysis_data callee_pname loc actual_pre (Prop.prop_sub split.sub p, path)
-        )
+        post_process_post analysis_data callee_pname loc actual_pre (Prop.prop_sub split.sub p, path) )
       posts'
   in
   L.d_increase_indent () ;
@@ -951,10 +954,8 @@ let mk_posts tenv prop callee_pname posts =
         List.exists
           ~f:(function
             | Predicates.Hpointsto (Exp.Lvar pvar, Eexp (e, _), _) when Pvar.is_return pvar ->
-              if Config.find_missing_summary then
-                false
-              else
-                Prover.check_equal tenv (Prop.normalize tenv prop) e Exp.zero
+                if Config.find_missing_summary then false
+                else Prover.check_equal tenv (Prop.normalize tenv prop) e Exp.zero
             | _ ->
                 false )
           prop.Prop.sigma
@@ -1275,10 +1276,11 @@ let exe_call_postprocess tenv ret_id callee_pname callee_attrs loc results prop 
                 extend_path path_opt (Some pos) ;
                 if Localise.is_empty_vector_access_desc desc then
                   raise (Exceptions.Empty_vector_access (desc, __POS__))
-                else 
-                  (ErrorSummary.debug "@\n{start@\n \"callee_function\": %a@\n" Procname.pp callee_pname;
-                  ErrorSummary.debug "\"prop\": %a @\nend}@\n" (Prop.pp_prop Pp.text) prop;
-                  raise (Exceptions.Null_dereference (desc, __POS__)))
+                else (
+                  ErrorSummary.debug "@\n{start@\n \"callee_function\": %a@\n" Procname.pp
+                    callee_pname ;
+                  ErrorSummary.debug "\"prop\": %a @\nend}@\n" (Prop.pp_prop Pp.text) prop ;
+                  raise (Exceptions.Null_dereference (desc, __POS__)) )
             | Dereference_error (Deref_undef _, _, _)
             | Prover_checks _
             | Cannot_combine
@@ -1287,16 +1289,16 @@ let exe_call_postprocess tenv ret_id callee_pname callee_attrs loc results prop 
                 assert false )
         | [] ->
             (* no dereference error detected *)
-            if Config.find_missing_summary then (
+            if Config.find_missing_summary then
               let process_valid_res vr =
                 let save_diverging_states () =
-                    (* no consistent results on one spec: divergence *)
-                    let cons_res =
-                      List.map
-                        ~f:(fun (p, path) -> (prop_pure_to_footprint tenv p, path))
-                        vr.vr_cons_res
-                    in
-                    State.add_diverging_states (Paths.PathSet.from_renamed_list cons_res)
+                  (* no consistent results on one spec: divergence *)
+                  let cons_res =
+                    List.map
+                      ~f:(fun (p, path) -> (prop_pure_to_footprint tenv p, path))
+                      vr.vr_cons_res
+                  in
+                  State.add_diverging_states (Paths.PathSet.from_renamed_list cons_res)
                 in
                 save_diverging_states () ;
                 vr.vr_incons_res
@@ -1304,8 +1306,7 @@ let exe_call_postprocess tenv ret_id callee_pname callee_attrs loc results prop 
               List.map
                 ~f:(fun (p, path) -> (prop_pure_to_footprint tenv p, path))
                 (List.concat_map ~f:process_valid_res valid_res)
-            )
-            else (
+            else
               let desc =
                 if List.exists ~f:(function Cannot_combine -> true | _ -> false) invalid_res then
                   call_desc (Some Localise.Pnm_dangling)
@@ -1322,7 +1323,6 @@ let exe_call_postprocess tenv ret_id callee_pname callee_attrs loc results prop 
                 else call_desc None
               in
               raise (Exceptions.Precondition_not_met (desc, __POS__))
-            )
       else
         (* combine the valid results, and store diverging states *)
         let process_valid_res vr =

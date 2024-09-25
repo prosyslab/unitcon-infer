@@ -23,7 +23,7 @@ val force_exit_program :
 
 val pp : Format.formatter -> t -> unit
 
-val pp_summary : 
-  Format.formatter ->
-  ExecutionDomain.summary list ->
-  [> `List of [> `Assoc of (string * [> `String of string ]) list ] list ]
+val pp_summary :
+     Format.formatter
+  -> ExecutionDomain.summary list
+  -> [> `List of [> `Assoc of (string * [> `String of string]) list] list]

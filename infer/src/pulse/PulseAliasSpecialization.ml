@@ -37,7 +37,7 @@ module PvarSpecialization = struct
         try_keep_original ~default:e e1 (exec_exp pname e1) ~f:(fun e1' -> UnOp (unop, e1', typ))
     | BinOp (binop, e1, e2) ->
         try_keep_original2 ~default:e e1 (exec_exp pname e1) e2 (exec_exp pname e2)
-          ~f:(fun e1' e2' -> BinOp (binop, e1', e2'))
+          ~f:(fun e1' e2' -> BinOp (binop, e1', e2') )
     | Exn e1 ->
         try_keep_original ~default:e e1 (exec_exp pname e1) ~f:(fun e1' -> Exn e1')
     | Closure {name; captured_vars} ->
@@ -58,7 +58,7 @@ module PvarSpecialization = struct
         try_keep_original ~default:e e1 (exec_exp pname e1) ~f:(fun e1' -> Lfield (e1', fn, typ))
     | Lindex (e1, e2) ->
         try_keep_original2 ~default:e e1 (exec_exp pname e1) e2 (exec_exp pname e2)
-          ~f:(fun e1' e2' -> Lindex (e1', e2'))
+          ~f:(fun e1' e2' -> Lindex (e1', e2') )
     | Sizeof {typ; nbytes; dynamic_length; subtype} ->
         Option.value_map dynamic_length ~default:e ~f:(fun dynamic_length ->
             try_keep_original ~default:e dynamic_length (exec_exp pname dynamic_length)
@@ -108,17 +108,17 @@ module PvarSpecialization = struct
             Load {id; e= e'; root_typ; typ= root_typ; loc} )
     | Store {e1; root_typ; typ; e2; loc} ->
         try_keep_original2 ~default:instr e1 (exec_exp pname e1) e2 (exec_exp pname e2)
-          ~f:(fun e1' e2' -> Store {e1= e1'; root_typ; typ; e2= e2'; loc})
+          ~f:(fun e1' e2' -> Store {e1= e1'; root_typ; typ; e2= e2'; loc} )
     | Call (ret_id_typ, call_exp, args, loc, call_flags) ->
         try_keep_original2 ~default:instr call_exp (exec_exp pname call_exp) args
           (exec_args pname args) ~f:(fun converted_call_exp converted_args ->
             Call (ret_id_typ, converted_call_exp, converted_args, loc, call_flags) )
     | Prune (origin_exp, loc, is_true_branch, if_kind) ->
         try_keep_original ~default:instr origin_exp (exec_exp pname origin_exp)
-          ~f:(fun converted_exp -> Prune (converted_exp, loc, is_true_branch, if_kind))
+          ~f:(fun converted_exp -> Prune (converted_exp, loc, is_true_branch, if_kind) )
     | Metadata metadata ->
         try_keep_original ~default:instr metadata (exec_metadata pname metadata)
-          ~f:(fun metadata' -> Metadata metadata')
+          ~f:(fun metadata' -> Metadata metadata' )
 end
 
 let create_specialized_procdesc callee_pname callee_pdesc aliases =

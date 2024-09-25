@@ -34,7 +34,7 @@ let proc_name_of_uid =
         |> SqliteUtils.check_result_code db ~log:"proc_name of proc_uid bind proc_uid" ;
         let result_option =
           SqliteUtils.result_option ~finalize:false db ~log:"proc_name of proc_uid" stmt
-            ~read_row:(fun stmt -> Sqlite3.column stmt 0 |> Procname.SQLite.deserialize)
+            ~read_row:(fun stmt -> Sqlite3.column stmt 0 |> Procname.SQLite.deserialize )
         in
         match result_option with
         | Some proc_name ->

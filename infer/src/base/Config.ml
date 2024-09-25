@@ -1683,7 +1683,7 @@ and _inferconfig_path =
          NB: This option is parsed in a special pass over the command line, so it is always set \
          (and the corresponding $(b, %s) file is read) first. In addition, this option will not \
          function properly if used inside a $(b, %s) file."
-        inferconfig_file inferconfig_env_var inferconfig_file inferconfig_file)
+        inferconfig_file inferconfig_env_var inferconfig_file inferconfig_file )
 
 
 and issues_tests_fields =

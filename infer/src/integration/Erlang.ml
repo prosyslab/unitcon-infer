@@ -47,12 +47,12 @@ let parse_translate_store result_dir =
   in
   let process_one_file json_file =
     ( if should_process json_file then
-      match Utils.read_safe_json_file json_file with
-      | Ok json ->
-          if not (process_one_ast json) then
-            L.debug Capture Verbose "Failed to parse %s@." json_file
-      | Error error ->
-          L.internal_error "E: %s@." error ) ;
+        match Utils.read_safe_json_file json_file with
+        | Ok json ->
+            if not (process_one_ast json) then
+              L.debug Capture Verbose "Failed to parse %s@." json_file
+        | Error error ->
+            L.internal_error "E: %s@." error ) ;
     None
   in
   Tasks.Runner.create ~jobs:Config.jobs

@@ -366,7 +366,7 @@ module Tableau = struct
                    let gain = Q.(-(q_c / coeff)) in
                    if
                      Container.for_all ~iter:(Container.iter ~fold:LinArith.fold) l
-                       ~f:(fun (_, coeff') -> Q.(coeff' >= zero || -(q_c / coeff') >= gain))
+                       ~f:(fun (_, coeff') -> Q.(coeff' >= zero || -(q_c / coeff') >= gain) )
                    then Some (u, (v, coeff))
                    else None
                  else None ) )
@@ -2288,7 +2288,7 @@ module DeadVariables = struct
       Var.Set.iter (fun v -> add_set graph v vs) vs
     in
     Container.iter ~fold:VarUF.fold_congruences phi.Formula.var_eqs
-      ~f:(fun ((repr : VarUF.repr), vs) -> add_all (Var.Set.add (repr :> Var.t) vs)) ;
+      ~f:(fun ((repr : VarUF.repr), vs) -> add_all (Var.Set.add (repr :> Var.t) vs) ) ;
     Var.Map.iter
       (fun v l ->
         LinArith.get_variables l

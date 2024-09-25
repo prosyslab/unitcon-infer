@@ -289,8 +289,7 @@ let pp_footprint_simple pe_ env f fp =
   let pe = {pe_ with Pp.cmap_norm= pe_.Pp.cmap_foot} in
   let pp_pure f pi = if not (List.is_empty pi) then F.fprintf f "%a *@\n" (pp_pi pe) pi in
   if (not (List.is_empty fp.pi_fp)) || not (List.is_empty fp.sigma_fp) then
-    F.fprintf f "@\nfootprint@\n   @[%a%a@]" pp_pure fp.pi_fp (pp_sigma_simple pe env)
-      fp.sigma_fp
+    F.fprintf f "@\nfootprint@\n   @[%a%a@]" pp_pure fp.pi_fp (pp_sigma_simple pe env) fp.sigma_fp
 
 
 (** Create a predicate environment for a prop *)
@@ -542,9 +541,8 @@ let sigma_get_unsigned_exps sigma =
   !uexps
 
 
-(** Collapse consecutive indices that should be added. For instance, this function reduces
-    [x\[1\]\[1\]] to [x\[2\]]. The [typ] argument is used to ensure the soundness of this
-    collapsing. *)
+(** Collapse consecutive indices that should be added. For instance, this function reduces [x[1][1]]
+    to [x[2]]. The [typ] argument is used to ensure the soundness of this collapsing. *)
 let exp_collapse_consecutive_indices_prop (typ : Typ.t) exp =
   let typ_is_base (typ1 : Typ.t) =
     match typ1.desc with Tint _ | Tfloat _ | Tstruct _ | Tvoid | Tfun -> true | _ -> false

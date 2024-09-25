@@ -30,7 +30,7 @@ end
 type t = Default | Local of Trust.t | Strict [@@deriving compare, equal]
 
 val of_annot : Annot.t -> t option
-  [@@warning "-32"]
+[@@warning "-32"]
 (** Returns [t] when provided annotation matches the format of [@Nullsafe], otherwise [None]. *)
 
 val of_class : Tenv.t -> JavaClassName.t -> t

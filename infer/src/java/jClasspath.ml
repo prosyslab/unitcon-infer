@@ -119,7 +119,7 @@ let load_from_verbose_output =
     match In_channel.input_line file_in with
     | None ->
         let classpath = classpath_of_paths (String.Set.elements roots @ paths) in
-        {classpath_channel = class_path classpath; sources; classes}
+        {classpath_channel= class_path classpath; sources; classes}
     | Some line when Str.string_match class_filename_re line 0 -> (
         let path =
           try Str.matched_group 5 line

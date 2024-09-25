@@ -99,7 +99,6 @@ end = struct
 
   let get_dummy_stats () = {max_length= -1; linear_num= -1.0}
 
-
   let add_description path description =
     let add_descr descr_option description =
       match descr_option with Some descr -> descr ^ " " ^ description | None -> description
@@ -454,17 +453,13 @@ end = struct
       match (path, curr_node path) with
       | Pcall (_, pname, ExecSkipped (_, loc_opt), _), Some curr_node ->
           let curr_loc = Procdesc.Node.get_loc curr_node in
-          let descr =
-            Procname.to_string pname
-          in
+          let descr = Procname.to_string pname in
           let node_tags = [] in
           trace := Errlog.make_trace_element level curr_loc descr node_tags :: !trace ;
           Option.iter
             ~f:(fun loc ->
               if Procname.is_java pname && not (SourceFile.is_invalid loc.Location.file) then
-                let definition_descr =
-                  Procname.to_string pname
-                in
+                let definition_descr = Procname.to_string pname in
                 trace := Errlog.make_trace_element (level + 1) loc definition_descr [] :: !trace )
             loc_opt
       | _, Some curr_node -> (
@@ -474,15 +469,11 @@ end = struct
               () (* omit join nodes from error traces *)
           | Procdesc.Node.Start_node ->
               let pname = Procdesc.Node.get_proc_name curr_node in
-              let descr =
-                Procname.to_string pname
-              in
+              let descr = Procname.to_string pname in
               let node_tags = [Errlog.Procedure_start pname] in
               trace := Errlog.make_trace_element level curr_loc descr node_tags :: !trace
           | Procdesc.Node.Prune_node (is_true_branch, _, _) ->
-              let descr =
-                Procdesc.Node.get_proc_name curr_node |> Procname.to_string
-              in
+              let descr = Procdesc.Node.get_proc_name curr_node |> Procname.to_string in
               let node_tags = [Errlog.Condition is_true_branch] in
               trace := Errlog.make_trace_element level curr_loc descr node_tags :: !trace
           | Procdesc.Node.Exit_node ->
@@ -502,9 +493,7 @@ end = struct
                     in
                     (desc, [Errlog.Exception exn_name])
               in
-              let descr =
-                Procdesc.Node.get_proc_name curr_node |> Procname.to_string
-              in
+              let descr = Procdesc.Node.get_proc_name curr_node |> Procname.to_string in
               trace := Errlog.make_trace_element level curr_loc descr node_tags :: !trace )
       | _, None ->
           ()

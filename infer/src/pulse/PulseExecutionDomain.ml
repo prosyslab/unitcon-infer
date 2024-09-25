@@ -80,6 +80,7 @@ let pp fmt = function
       F.fprintf fmt "{LatentInvalidAccess(%a) %a}" Decompiler.pp_expr address AbductiveDomain.pp
         (astate :> AbductiveDomain.t)
 
+
 let pp_summary fmt = function
   | AbortProgram astate ->
       AbductiveDomain.pp_summary fmt (astate :> AbductiveDomain.t)

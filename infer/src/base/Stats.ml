@@ -303,8 +303,7 @@ let log_to_scuba stats =
     let counters : int PulseSumCountMap.t = Field.get field stats in
     List.map
       ~f:(fun (n, count) ->
-        LogEntry.mk_count ~label:(F.sprintf "backend_stats.pulse_summaries_count_%d" n) ~value:count
-        )
+        LogEntry.mk_count ~label:(F.sprintf "backend_stats.pulse_summaries_count_%d" n) ~value:count )
       (PulseSumCountMap.bindings counters)
   in
   let entries =

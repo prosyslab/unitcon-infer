@@ -22,7 +22,7 @@ type t [@@deriving compare, equal, yojson_of]
 val pp : F.formatter -> t -> unit
 
 val pp_with_pp_var : (F.formatter -> Var.t -> unit) -> F.formatter -> t -> unit
-  [@@warning "-32"]
+[@@warning "-32"]
 (** only used for unit tests *)
 
 type function_symbol = Unknown of Var.t | Procname of Procname.t [@@deriving compare, equal]

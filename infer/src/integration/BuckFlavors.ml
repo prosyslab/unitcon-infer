@@ -18,7 +18,7 @@ let add_flavors_to_buck_arguments buck_mode ~extra_flavors original_buck_args =
   let targets =
     List.rev_map targets ~f:(fun t ->
         Buck.Target.(
-          t |> of_string |> add_flavor ~extra_flavors buck_mode Config.command |> to_string) )
+          t |> of_string |> add_flavor ~extra_flavors buck_mode Config.command |> to_string ) )
   in
   {command; rev_not_targets; targets}
 
@@ -33,7 +33,7 @@ let run_buck_build prog buck_build_args =
   L.debug Capture Verbose "%s %s@." prog (List.to_string ~f:Fn.id buck_build_args) ;
   let infer_args =
     Option.fold (Sys.getenv CommandLineOption.args_env_var) ~init:"--fcp-syntax-only"
-      ~f:(fun acc arg -> Printf.sprintf "%s%c%s" acc CommandLineOption.env_var_sep arg)
+      ~f:(fun acc arg -> Printf.sprintf "%s%c%s" acc CommandLineOption.env_var_sep arg )
   in
   let extend_env = [(CommandLineOption.args_env_var, infer_args)] in
   Buck.wrap_buck_call ~extend_env ~label:"build" (prog :: buck_build_args) |> ignore

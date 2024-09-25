@@ -46,7 +46,7 @@ let parse_cil_type_name (str : string) : Typ.t =
     Typ.(
       mk_ptr
         (mk_struct
-           (CSharpClass (CSharpClassName.make ~namespace:(Some _namespace) ~classname:_name)) ))
+           (CSharpClass (CSharpClassName.make ~namespace:(Some _namespace) ~classname:_name)) ) )
   with _ ->
     Typ.(mk_ptr (mk_struct (CSharpClass (CSharpClassName.make ~namespace:None ~classname:str))))
 

@@ -173,15 +173,18 @@ let%test_module "normalization" =
         (instanceof nil_typ x_var z_var && instanceof nil_typ y_var w_var && z = i 0) ;
       [%expect {|unsat|}]
 
+
     let%expect_test _ =
       normalize_with_all_types_Nil
         (instanceof nil_typ x_var z_var && instanceof nil_typ y_var w_var && w = i 0) ;
       [%expect {|unsat|}]
 
+
     let%expect_test _ =
       normalize_with_all_types_Nil
         (instanceof cons_typ x_var y_var && instanceof nil_typ x_var y_var) ;
       [%expect {|unsat|}]
+
 
     let%expect_test _ =
       normalize (x < y) ;
@@ -191,31 +194,38 @@ let%test_module "normalization" =
         pruned=true (no atoms),
         both=true (no var=var) && x = y + -a2 -1 && [y + -a2 -1]=x && true (no tableau) && true (no atoms) |}]
 
+
     let%expect_test _ =
       normalize (x + i 1 - i 1 < x) ;
       [%expect {|unsat|}]
+
 
     let%expect_test _ =
       normalize (x + (y - x) < y) ;
       [%expect {|unsat|}]
 
+
     let%expect_test _ =
       normalize (x = y && y = z && z = i 0 && x = i 1) ;
       [%expect {|unsat|}]
+
 
     (* should be false (x = w + (y+1) -> 1 = w + z -> 1 = 0)  *)
     let%expect_test _ =
       normalize (x = w + y + i 1 && y + i 1 = z && x = i 1 && w + z = i 0) ;
       [%expect {|unsat|}]
 
+
     (* same as above but atoms are given in the opposite order *)
     let%expect_test _ =
       normalize (w + z = i 0 && x = i 1 && y + i 1 = z && x = w + y + i 1) ;
       [%expect {|unsat|}]
 
+
     let%expect_test _ =
       normalize (of_binop Ne x y = i 0 && x = i 0 && y = i 1) ;
       [%expect {|unsat|}]
+
 
     let%expect_test _ =
       normalize (of_binop Eq x y = i 0 && x = i 0 && y = i 1) ;
@@ -225,13 +235,16 @@ let%test_module "normalization" =
         pruned=true (no atoms),
         both=x=v6 && x = 0 ∧ y = 1 && 0=x∧1=y && true (no tableau) && true (no atoms)|}]
 
+
     let%expect_test _ =
       normalize (x = i 0 && x < i 0) ;
       [%expect {|unsat|}]
 
+
     let%expect_test _ =
       normalize (x + y < x + y) ;
       [%expect {|unsat|}]
+
 
     let%expect_test "nonlinear arithmetic" =
       normalize (z * (x + (v * y) + i 1) / w = i 0) ;
@@ -256,6 +269,7 @@ let%test_module "normalization" =
              true (no tableau)
              &&
              true (no atoms) |}]
+
 
     (* check that this becomes all linear equalities *)
     let%expect_test _ =
@@ -282,6 +296,7 @@ let%test_module "normalization" =
              &&
              true (no atoms)|}]
 
+
     (* check that this becomes all linear equalities thanks to constant propagation *)
     let%expect_test _ =
       normalize (z * (x + (v * y) + i 1) / w = i 0 && z = i 12 && v = i 3 && w = i 1) ;
@@ -306,6 +321,7 @@ let%test_module "normalization" =
              true (no tableau)
              &&
              true (no atoms)|}]
+
 
     (* expected: [is_int(x)] and [is_int(y)] get simplified away, [is_int(z)] is kept around *)
     let%expect_test _ =
@@ -333,10 +349,12 @@ let%test_module "normalization" =
              &&
              {is_int([z]) = 1}|}]
 
+
     let%expect_test _ =
       normalize (is_int x_var && x + x = i 5) ;
       [%expect {|unsat|}]
   end )
+
 
 let%test_module "variable elimination" =
   ( module struct
@@ -348,6 +366,7 @@ let%test_module "variable elimination" =
         pruned=true (no atoms),
         both=x=y && true (no linear) && true (no term_eqs) && true (no tableau) && true (no atoms)|}]
 
+
     let%expect_test _ =
       simplify ~keep:[x_var] (x = i 0 && y = i 1 && z = i 2 && w = i 3) ;
       [%expect
@@ -355,6 +374,7 @@ let%test_module "variable elimination" =
         known=true (no var=var) && x = 0 && 0=x && true (no tableau) && true (no atoms),
         pruned=true (no atoms),
         both=true (no var=var) && x = 0 && 0=x && true (no tableau) && true (no atoms)|}]
+
 
     let%expect_test _ =
       simplify ~keep:[x_var] (x = y + i 1 && x = i 0) ;
@@ -364,6 +384,7 @@ let%test_module "variable elimination" =
           pruned=true (no atoms),
           both=true (no var=var) && x = 0 && 0=x && true (no tableau) && true (no atoms)|}]
 
+
     let%expect_test _ =
       simplify ~keep:[y_var] (x = y + i 1 && x = i 0) ;
       [%expect
@@ -371,6 +392,7 @@ let%test_module "variable elimination" =
         known=true (no var=var) && y = -1 && -1=y && true (no tableau) && true (no atoms),
         pruned=true (no atoms),
         both=true (no var=var) && y = -1 && -1=y && true (no tableau) && true (no atoms)|}]
+
 
     (* should keep most of this or realize that [w = z] hence this boils down to [z+1 = 0] *)
     let%expect_test _ =
@@ -397,6 +419,7 @@ let%test_module "variable elimination" =
              &&
              true (no atoms)|}]
 
+
     let%expect_test _ =
       simplify ~keep:[x_var; y_var] (x = y + z && w + x + y = i 0 && v = w + i 1) ;
       [%expect
@@ -421,6 +444,7 @@ let%test_module "variable elimination" =
                &&
                true (no atoms)|}]
 
+
     let%expect_test _ =
       simplify ~keep:[x_var; y_var] (x = y + i 4 && x = w && y = z) ;
       [%expect
@@ -429,6 +453,7 @@ let%test_module "variable elimination" =
         pruned=true (no atoms),
         both=true (no var=var) && x = y +4 && [y +4]=x && true (no tableau) && true (no atoms)|}]
   end )
+
 
 let%test_module "non-linear simplifications" =
   ( module struct
@@ -440,6 +465,7 @@ let%test_module "non-linear simplifications" =
         pruned=true (no atoms),
         both=true (no var=var) && w = 0 && 0=w && true (no tableau) && true (no atoms)|}]
 
+
     let%expect_test "constant propagation: bitshift" =
       simplify ~keep:[x_var] (of_binop Shiftlt (of_binop Shiftrt (i 0b111) (i 2)) (i 2) = x) ;
       [%expect
@@ -447,6 +473,7 @@ let%test_module "non-linear simplifications" =
         known=true (no var=var) && x = 4 && 4=x && true (no tableau) && true (no atoms),
         pruned=true (no atoms),
         both=true (no var=var) && x = 4 && 4=x && true (no tableau) && true (no atoms)|}]
+
 
     let%expect_test "non-linear becomes linear" =
       normalize (w = (i 2 * z) - i 3 && z = x * y && y = i 2) ;
@@ -473,15 +500,18 @@ let%test_module "non-linear simplifications" =
                true (no atoms)|}]
   end )
 
+
 let%test_module "inequalities" =
   ( module struct
     let%expect_test "simple contradiction" =
       normalize (x < i 0 && x >= i 0) ;
       [%expect {| unsat |}]
 
+
     let%expect_test "simple contradiction" =
       normalize (x < y && x >= y) ;
       [%expect {| unsat |}]
+
 
     let%expect_test "add to tableau with pivot" =
       normalize (x >= i 0 && y >= i 0 && z >= i 0 && x + y >= i 2 && z - y <= i (-3)) ;
@@ -507,9 +537,11 @@ let%test_module "inequalities" =
              &&
              true (no atoms) |}]
 
+
     let%expect_test "add to tableau with pivot then unsat" =
       normalize (x >= i 0 && y >= i 0 && z >= i 0 && x + y >= i 2 && z - y <= i (-3) && y < i 1) ;
       [%expect {| unsat |}]
+
 
     let%expect_test "contradiction using pivot" =
       normalize (x >= i 0 && y >= i 0 && z >= i 0 && x + y <= i 2 && y - z >= i 3) ;

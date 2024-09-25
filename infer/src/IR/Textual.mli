@@ -78,7 +78,7 @@ module Exp : sig
     | Lvar of VarName.t  (** the address of a program variable *)
     | Field of {exp: t; tname: TypeName.t; fname: FieldBaseName.t}
         (** field offset, fname must be declared in type tname *)
-    | Index of t * t  (** an array index offset: [exp1\[exp2\]] *)
+    | Index of t * t  (** an array index offset: [exp1[exp2]] *)
     | Const of Const.t
     | Call of {proc: ProcBaseName.t; args: t list}
     | Cast of Typ.t * t

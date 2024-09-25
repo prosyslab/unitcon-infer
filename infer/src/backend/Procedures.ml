@@ -38,27 +38,28 @@ let select_proc_names_interactive ~filter =
       Some [proc_names_array.(n)]
   | _, None ->
       Some proc_names
-      (*let proc_names_array = List.to_array proc_names in
-      Array.iteri proc_names_array ~f:(fun i proc_name ->
-          F.eprintf "%d: %a@\n" i Procname.pp proc_name ) ;
-      let rec ask_user_input () =
-        F.eprintf "Select one number (type 'a' for selecting all, 'q' for quit): " ;
-        Out_channel.flush stderr ;
-        let input = String.strip In_channel.(input_line_exn stdin) in
-        if String.equal (String.lowercase input) "a" then Some proc_names
-        else if String.equal (String.lowercase input) "q" then (
-          F.eprintf "Quit interactive mode" ;
-          None )
-        else
-          match int_of_string_opt input with
-          | Some n when 0 <= n && n < Array.length proc_names_array ->
-              Some [proc_names_array.(n)]
-          | _ ->
-              F.eprintf "Invalid input" ;
-              ask_user_input ()
-      in
-      ask_user_input ()*)
 
+
+(*let proc_names_array = List.to_array proc_names in
+  Array.iteri proc_names_array ~f:(fun i proc_name ->
+      F.eprintf "%d: %a@\n" i Procname.pp proc_name ) ;
+  let rec ask_user_input () =
+    F.eprintf "Select one number (type 'a' for selecting all, 'q' for quit): " ;
+    Out_channel.flush stderr ;
+    let input = String.strip In_channel.(input_line_exn stdin) in
+    if String.equal (String.lowercase input) "a" then Some proc_names
+    else if String.equal (String.lowercase input) "q" then (
+      F.eprintf "Quit interactive mode" ;
+      None )
+    else
+      match int_of_string_opt input with
+      | Some n when 0 <= n && n < Array.length proc_names_array ->
+          Some [proc_names_array.(n)]
+      | _ ->
+          F.eprintf "Invalid input" ;
+          ask_user_input ()
+  in
+  ask_user_input ()*)
 
 let pp_all ~filter ~proc_name:proc_name_cond ~defined ~source_file:source_file_cond ~proc_attributes
     ~proc_cfg fmt () =

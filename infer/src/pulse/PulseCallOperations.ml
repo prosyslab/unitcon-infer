@@ -340,7 +340,7 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
   in
   let empty_check =
     List.fold_left (AbductiveDomain.pp_summary Format.std_formatter caller_astate) ~init:true
-      ~f:(fun e_check (_, value) -> e_check && ( String.equal value "{ }" ))
+      ~f:(fun e_check (_, value) -> e_check && String.equal value "{ }" )
   in
   if Int.equal (List.length actuals) 0 then ()
   else if check then ()

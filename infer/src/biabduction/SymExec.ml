@@ -1086,7 +1086,7 @@ let declare_locals_and_ret tenv pdesc (prop_ : Prop.normal Prop.t) =
 (** Execute [instr] with a symbolic heap [prop].*)
 let rec sym_exec
     ( {InterproceduralAnalysis.proc_desc= current_pdesc; analyze_dependency; err_log; tenv} as
-    analysis_data ) instr_ (prop_ : Prop.normal Prop.t) path :
+      analysis_data ) instr_ (prop_ : Prop.normal Prop.t) path :
     (Prop.normal Prop.t * Paths.Path.t) list =
   AnalysisState.set_instr instr_ ;
   (* mark instruction last seen *)
@@ -1165,12 +1165,12 @@ let rec sym_exec
           let norm_prop, norm_args' = normalize_params analysis_data prop_ actual_params in
           let norm_args = call_constructor_url_update_args callee_pname norm_args' in
           let caller_pname = Procdesc.get_proc_name current_pdesc in
-          CallProp.debug "\n{start\n\"caller_pname\": %a\n" Procname.pp caller_pname;
-          CallProp.debug "\"callee_pname\": %a\n" Procname.pp callee_pname;
-          CallProp.debug "\"prop\": %a\n" (Prop.pp_prop Pp.text) norm_prop;
-          CallProp.debug "\"args\": ";
-          List.iter ~f:(fun (exp', _) -> CallProp.debug " %a " Exp.pp exp') norm_args;
-          CallProp.debug "\nend}\n";
+          CallProp.debug "\n{start\n\"caller_pname\": %a\n" Procname.pp caller_pname ;
+          CallProp.debug "\"callee_pname\": %a\n" Procname.pp callee_pname ;
+          CallProp.debug "\"prop\": %a\n" (Prop.pp_prop Pp.text) norm_prop ;
+          CallProp.debug "\"args\": " ;
+          List.iter ~f:(fun (exp', _) -> CallProp.debug " %a " Exp.pp exp') norm_args ;
+          CallProp.debug "\nend}\n" ;
           let exec_skip_call ~reason skipped_pname ret_annots ret_type =
             skip_call ~reason norm_prop path skipped_pname ret_annots loc ret_id_typ ret_type
               norm_args

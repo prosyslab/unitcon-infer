@@ -256,7 +256,10 @@ let pp_spec0 pe num_opt fmt spec =
   let pre = Jprop.to_prop spec.pre in
   let pe_post = Prop.prop_update_obj_sub pe pre in
   let post_list = List.map ~f:fst spec.posts in
-  L.(debug Analysis Verbose) "@\npostcond: %a@\n" (Propgraph.pp_proplist pe_post "POST" (pre, true)) post_list;
+  L.(debug Analysis Verbose)
+    "@\npostcond: %a@\n"
+    (Propgraph.pp_proplist pe_post "POST" (pre, true))
+    post_list ;
   match pe.Pp.kind with
   | TEXT ->
       F.fprintf fmt "--------------------------- %a ---------------------------@\n" pp_num_opt
@@ -273,15 +276,18 @@ let pp_spec0 pe num_opt fmt spec =
       Propgraph.pp_proplist pe_post "POST" (pre, true) fmt post_list ;
       F.pp_print_string fmt "----------------------------------------------------------------"
 
+
 (*extract_spec*)
 let rm_char str =
   let str = Str.global_replace (Str.regexp "\n") "" str in
   let str = Str.replace_first (Str.regexp "^ +") "" str in
   Str.replace_first (Str.regexp " +$") "" str
 
+
 let pp_spec_return pe num_opt fmt spec =
   let pp_num_opt _ = function
-    | None -> ""
+    | None ->
+        ""
     | Some _ ->
         let visited = F.asprintf "%a" Visitedset.pp spec.visited in
         visited
@@ -293,19 +299,19 @@ let pp_spec_return pe num_opt fmt spec =
   let visited_list = String.split v ~on:' ' in
   let precond = F.asprintf "%a" (Prop.pp_prop Pp.text) pre in
   let precond_list = String.split precond ~on:';' |> List.map ~f:rm_char in
-  let postcond =
-    F.asprintf "%a" (Propgraph.pp_proplist pe_post "POST" (pre, true)) post_list
-  in
+  let postcond = F.asprintf "%a" (Propgraph.pp_proplist pe_post "POST" (pre, true)) post_list in
   let postcond_list = String.split postcond ~on:';' |> List.map ~f:rm_char in
   (visited_list, precond_list, postcond_list)
+
 
 let pp_specs_return pe fmt specs =
   let total = List.length specs in
   match pe.Pp.kind with
   | TEXT ->
-      List.mapi specs ~f:(fun cnt spec ->
-          pp_spec_return pe (Some (cnt + 1, total)) fmt spec)
-  | _ -> []
+      List.mapi specs ~f:(fun cnt spec -> pp_spec_return pe (Some (cnt + 1, total)) fmt spec)
+  | _ ->
+      []
+
 
 let pp_spec f spec = pp_spec0 (if Config.write_html then Pp.html Blue else Pp.text) None f spec
 
@@ -333,17 +339,15 @@ let pp pe fmt {preposts; phase} =
   F.fprintf fmt "phase= %s@\n%a" (string_of_phase phase) (pp_specs pe)
     (List.map ~f:NormSpec.tospec preposts)
 
+
 let to_json list =
   let visited, precond, postcond = list in
   `Assoc
-    [
-      ("visited", `List (List.map ~f:(fun x -> `String x) visited));
-      ("precond", `List (List.map ~f:(fun x -> `String x) precond));
-      ("postcond", `List (List.map ~f:(fun x -> `String x) postcond));
-    ]
+    [ ("visited", `List (List.map ~f:(fun x -> `String x) visited))
+    ; ("precond", `List (List.map ~f:(fun x -> `String x) precond))
+    ; ("postcond", `List (List.map ~f:(fun x -> `String x) postcond)) ]
 
-let pp_summary pe _ { preposts; _ } =
-  let summary =
-    pp_specs_return pe F.std_formatter (List.map ~f:NormSpec.tospec preposts)
-  in
+
+let pp_summary pe _ {preposts; _} =
+  let summary = pp_specs_return pe F.std_formatter (List.map ~f:NormSpec.tospec preposts) in
   `List (List.map summary ~f:to_json)

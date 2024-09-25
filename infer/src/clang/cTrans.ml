@@ -2294,8 +2294,7 @@ module CTrans_funct (F : CModule_type.CFrontend) : CModule_type.CTranslation = s
       in
       List.iter
         ~f:(fun n ->
-          Procdesc.node_set_succs context.procdesc n ~normal:res_trans_s2.control.root_nodes ~exn:[]
-          )
+          Procdesc.node_set_succs context.procdesc n ~normal:res_trans_s2.control.root_nodes ~exn:[] )
         prune_to_s2 ;
       let root_nodes_to_parent =
         if List.is_empty res_trans_s1.control.root_nodes then res_trans_s1.control.leaf_nodes
@@ -2439,7 +2438,7 @@ module CTrans_funct (F : CModule_type.CFrontend) : CModule_type.CTranslation = s
     let[@warning "-8"] [body] = default_stmt_list in
     let body_trans_result = instruction trans_state body in
     (let open SwitchCase in
-    add {condition= Default; stmt_info; root_nodes= body_trans_result.control.root_nodes}) ;
+     add {condition= Default; stmt_info; root_nodes= body_trans_result.control.root_nodes} ) ;
     body_trans_result
 
 
@@ -3553,7 +3552,7 @@ module CTrans_funct (F : CModule_type.CFrontend) : CModule_type.CTranslation = s
         objCArrayDictLiteral_trans trans_state expr_info stmt_info stmts method_pointer
 
 
-  (** Translates an array literal [NSArray* a = @\[ @2, @3 \];] to
+  (** Translates an array literal [NSArray* a = @[ @2, @3 ];] to
 
       {[
         n$1=NSNumber.numberWithInt:(2:int)
@@ -3667,7 +3666,7 @@ module CTrans_funct (F : CModule_type.CFrontend) : CModule_type.CTranslation = s
         objCArrayDictLiteral_trans trans_state expr_info stmt_info stmts method_pointer
 
 
-  (** Translates an dictionary literal [@\[ @"firstName": @"Foo", @"lastName":@"Bar" \]] to
+  (** Translates an dictionary literal [@[ @"firstName": @"Foo", @"lastName":@"Bar" ]] to
 
       {[
         n$1=NSString.stringWithUTF8:(@"firstName")
@@ -3969,8 +3968,8 @@ module CTrans_funct (F : CModule_type.CFrontend) : CModule_type.CTranslation = s
         | `LCK_ByRef (* explicit with [&x] or implicit with [&] *)
         | `LCK_This (* explicit with [this] or implicit with [&] *)
         | `LCK_VLAType
-        (* capture a variable-length array by reference. we probably don't handle
-           this correctly elsewhere, but it's definitely not captured by value! *) ->
+          (* capture a variable-length array by reference. we probably don't handle
+             this correctly elsewhere, but it's definitely not captured by value! *) ->
             true
         | `LCK_ByCopy (* explicit with [x] or implicit with [=] *) ->
             (* [=] captures this by reference and everything else by value *)
@@ -5283,8 +5282,8 @@ module CTrans_funct (F : CModule_type.CFrontend) : CModule_type.CTranslation = s
           ( { root_nodes= control_tail_rev.root_nodes
             ; leaf_nodes=
                 ( if not (List.is_empty res_trans_s.control.leaf_nodes) then
-                  res_trans_s.control.leaf_nodes
-                else control_tail_rev.leaf_nodes )
+                    res_trans_s.control.leaf_nodes
+                  else control_tail_rev.leaf_nodes )
             ; instrs= List.rev_append res_trans_s.control.instrs control_tail_rev.instrs
             ; initd_exps= List.rev_append res_trans_s.control.initd_exps control_tail_rev.initd_exps
             ; cxx_temporary_markers_set=

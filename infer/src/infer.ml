@@ -45,12 +45,12 @@ let setup () =
           (* In Buck mode, delete infer-out directories inside buck-out to start fresh and to
              avoid getting errors because some of their contents is missing (removed by
              [Driver.clean_results_dir ()]). *)
-          (buck && Option.exists buck_mode ~f:BuckMode.is_clang_flavors) || genrule_mode)
+          (buck && Option.exists buck_mode ~f:BuckMode.is_clang_flavors) || genrule_mode )
         || not
              ( Driver.is_analyze_mode driver_mode
              || Config.(
                   continue_capture || infer_is_clang || infer_is_javac || reactive_mode
-                  || incremental_analysis) )
+                  || incremental_analysis ) )
       then ResultsDir.remove_results_dir () ;
       ResultsDir.create_results_dir () ;
       if
