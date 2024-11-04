@@ -66,7 +66,7 @@ let of_id = function
       ; before_incremental_analysis= Delete
       ; before_caching_capture= Delete }
   | CallProp ->
-      { rel_path= "call_proposition.json"
+      { rel_path= "call-proposition.json"
       ; kind= File
       ; before_incremental_analysis= Delete
       ; before_caching_capture= Delete }
@@ -141,7 +141,7 @@ let of_id = function
       ; before_incremental_analysis= Keep
       ; before_caching_capture= Delete }
   | ErrorSummaries ->
-      { rel_path= "error_summaries.json"
+      { rel_path= "error-summaries.json"
       ; kind= File
       ; before_incremental_analysis= Delete
       ; before_caching_capture= Delete }
