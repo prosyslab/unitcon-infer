@@ -195,7 +195,17 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
              ~init:[]
              (ExecutionDomain.pp_summary Format.std_formatter (AbortProgram astate))
          in
-         es_json (`Assoc (("Procname", `String pname) :: cond)) ) ;
+         let start_loc = Procdesc.get_start_node proc_desc |> Procdesc.Node.get_loc in
+         let start_line = start_loc.line in
+         let file = start_loc.file |> SourceFile.to_string in
+         let last_line = (Procdesc.get_exit_node proc_desc |> Procdesc.Node.get_loc).line in
+         es_json
+           (`Assoc
+             ( ("Procname", `String pname)
+             :: ("Filename", `String file)
+             :: ("StartLine", `Int start_line)
+             :: ("LastLine", `Int last_line)
+             :: cond ) ) ) ;
         report ~latent:true ~is_suppressed proc_desc err_log
           (AccessToInvalidAddress
              { calling_context= []
