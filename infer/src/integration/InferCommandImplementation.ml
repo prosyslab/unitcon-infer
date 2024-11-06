@@ -35,10 +35,15 @@ let debug () =
           let json_of_summary proc_name =
             Summary.OnDisk.get proc_name |> Option.map ~f:Summary.yojson_of_t
           in
+          let oc =
+            Stdlib.open_out_gen [Open_append; Open_creat] 0o666
+              (ResultsDirEntryName.get_path ~results_dir:Config.toplevel_results_dir Summary)
+          in
           let f_json proc_names =
-            Marshal.to_channel stdout (`List (List.filter_map ~f:json_of_summary proc_names)) [] ;
-            Out_channel.newline stdout ;
-            Out_channel.flush stdout
+            Marshal.to_channel oc (`List (List.filter_map ~f:json_of_summary proc_names)) [] ;
+            Out_channel.newline oc ;
+            Out_channel.flush oc ;
+            Out_channel.close oc
           in
           Option.iter
             (Procedures.select_proc_names_interactive ~filter)

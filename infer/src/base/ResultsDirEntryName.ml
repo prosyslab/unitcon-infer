@@ -41,6 +41,7 @@ type id =
   | RetainCycles
   | RunState
   | StarvationIssues
+  | Summary
   | Temporary
   | TestDeterminatorReport
   | TestDeterminatorTempResults
@@ -213,6 +214,11 @@ let of_id = function
   | StarvationIssues ->
       { rel_path= "starvation_issues"
       ; kind= IssuesDirectory
+      ; before_incremental_analysis= Delete
+      ; before_caching_capture= Delete }
+  | Summary ->
+      { rel_path= "summary.json"
+      ; kind= File
       ; before_incremental_analysis= Delete
       ; before_caching_capture= Delete }
   | Temporary ->
