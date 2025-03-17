@@ -15,6 +15,10 @@ module Use = struct
   let pp fmt = function Use (v, l) -> F.fprintf fmt "Use %a (%a)" Var.pp v Location.pp l
 end
 
+module NodeSet = struct
+  include AbstractDomain.FiniteSet (Procdesc.Node)
+end
+
 module Set = struct
   include AbstractDomain.FiniteSet (Use)
 
@@ -57,15 +61,7 @@ let search_instr pvar_formals instr t =
     let vs = Var.get_all_vars_in_exp e in
     Sequence.fold ~init:t ~f:(fun t v -> add_use_var v loc t) vs
   in
-  match instr with
-  | Sil.Load {e: Exp.t; loc: Location.t} ->
-      add_use_var_from_exp e loc t
-  | Sil.Store {e2: Exp.t; loc: Location.t} ->
-      add_use_var_from_exp e2 loc t
-  | Sil.Call (_, _, args, loc, _) ->
-      List.fold ~init:t ~f:(fun t (e, _) -> add_use_var_from_exp e loc t) args
-  | _ ->
-      t
+  match instr with Sil.Load {e: Exp.t; loc: Location.t} -> add_use_var_from_exp e loc t | _ -> t
 
 
 let search_one_node pvar_formals node t =
@@ -73,14 +69,15 @@ let search_one_node pvar_formals node t =
   Instrs.fold ~init:t ~f:(fun t instr -> search_instr pvar_formals instr t) instrs
 
 
-let rec search_node pvar_formals node t =
-  if Procdesc.Node.equal_nodekind (Procdesc.Node.get_kind node) Procdesc.Node.Start_node then t
+let rec get_nodes_from_exn_node node t =
+  if
+    Procdesc.Node.equal_nodekind (Procdesc.Node.get_kind node) Procdesc.Node.Start_node
+    || NodeSet.mem node t
+  then t
   else
     let pred_nodes = Procdesc.Node.get_preds node in
-    List.fold_left ~init:t
-      ~f:(fun t pred ->
-        let t = search_one_node pvar_formals pred t in
-        search_node pvar_formals pred t )
+    List.fold_left ~init:(NodeSet.add node t)
+      ~f:(fun t pred -> get_nodes_from_exn_node pred t)
       pred_nodes
 
 
@@ -91,4 +88,9 @@ let search_err_proc proc_desc location =
   in
   let nodes = Procdesc.get_nodes proc_desc in
   let exn_node = find_equal_node location nodes in
-  match exn_node with Some node -> search_node pvar_formals node Set.empty | None -> Set.empty
+  match exn_node with
+  | Some node ->
+      let all_nodes = get_nodes_from_exn_node node NodeSet.empty in
+      NodeSet.fold (fun node t -> search_one_node pvar_formals node t) all_nodes Set.empty
+  | None ->
+      Set.empty
