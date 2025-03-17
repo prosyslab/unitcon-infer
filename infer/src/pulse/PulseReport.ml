@@ -173,8 +173,8 @@ let summary_error_of_error tenv proc_desc location (error : AccessResult.error) 
       summary_of_error_post tenv proc_desc location (fun astate -> ISLErrorSummary {astate}) astate
 
 
-let report_summary_error tenv proc_desc err_log (access_error : AccessResult.summary_error) :
-    ExecutionDomain.summary option =
+let report_summary_error tenv proc_desc err_log location (access_error : AccessResult.summary_error)
+    : ExecutionDomain.summary option =
   match access_error with
   | PotentialInvalidAccessSummary {astate; address; must_be_valid} ->
       let invalidation = Invalidation.ConstantDereference IntLit.zero in
@@ -199,12 +199,14 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
          let start_line = start_loc.line in
          let file = start_loc.file |> SourceFile.to_string in
          let last_line = (Procdesc.get_exit_node proc_desc |> Procdesc.Node.get_loc).line in
+         let info = PulseUseInfo.search_err_proc proc_desc location in
          es_json
            (`Assoc
              ( ("Procname", `String pname)
              :: ("Filename", `String file)
              :: ("StartLine", `Int start_line)
              :: ("LastLine", `Int last_line)
+             :: ("UsedArg", PulseUseInfo.yojson_of_t info)
              :: cond ) ) ) ;
         report ~latent:true ~is_suppressed proc_desc err_log
           (AccessToInvalidAddress
@@ -240,12 +242,14 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
        let start_line = start_loc.line in
        let file = start_loc.file |> SourceFile.to_string in
        let last_line = (Procdesc.get_exit_node proc_desc |> Procdesc.Node.get_loc).line in
+       let info = PulseUseInfo.search_err_proc proc_desc location in
        es_json
          (`Assoc
            ( ("Procname", `String pname)
            :: ("Filename", `String file)
            :: ("StartLine", `Int start_line)
            :: ("LastLine", `Int last_line)
+           :: ("UsedArg", PulseUseInfo.yojson_of_t info)
            :: cond ) ) ) ;
       match LatentIssue.should_report astate diagnostic with
       | `ReportNow ->
@@ -262,7 +266,7 @@ let report_summary_error tenv proc_desc err_log (access_error : AccessResult.sum
 let report_error tenv proc_desc err_log location access_error =
   let open SatUnsat.Import in
   summary_error_of_error tenv proc_desc location access_error
-  >>| report_summary_error tenv proc_desc err_log
+  >>| report_summary_error tenv proc_desc err_log location
 
 
 let report_errors tenv proc_desc err_log location errors =

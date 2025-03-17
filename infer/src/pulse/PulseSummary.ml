@@ -48,17 +48,17 @@ let exec_summary_of_post_common tenv ~continue_program proc_desc err_log locatio
       | Ok astate ->
           continue_program astate
       | Error (`RetainCycle (astate, assignment_traces, value, path, location)) ->
-          PulseReport.report_summary_error tenv proc_desc err_log
+          PulseReport.report_summary_error tenv proc_desc err_log location
             (ReportableErrorSummary
                {astate; diagnostic= RetainCycle {assignment_traces; value; path; location}} )
           |> Option.value ~default:(ExecutionDomain.ContinueProgram astate)
       | Error (`MemoryLeak (astate, allocator, allocation_trace, location)) ->
-          PulseReport.report_summary_error tenv proc_desc err_log
+          PulseReport.report_summary_error tenv proc_desc err_log location
             (ReportableErrorSummary
                {astate; diagnostic= MemoryLeak {allocator; allocation_trace; location}} )
           |> Option.value ~default:(ExecutionDomain.ContinueProgram astate)
       | Error (`ResourceLeak (astate, class_name, allocation_trace, location)) ->
-          PulseReport.report_summary_error tenv proc_desc err_log
+          PulseReport.report_summary_error tenv proc_desc err_log location
             (ReportableErrorSummary
                {astate; diagnostic= ResourceLeak {class_name; allocation_trace; location}} )
           |> Option.value ~default:(ExecutionDomain.ContinueProgram astate)
@@ -77,7 +77,7 @@ let exec_summary_of_post_common tenv ~continue_program proc_desc err_log locatio
             (* NOTE: this probably leads to the error being dropped as the access trace is unlikely to
                contain the reason for invalidation and thus we will filter out the report. TODO:
                figure out if that's a problem. *)
-            PulseReport.report_summary_error tenv proc_desc err_log
+            PulseReport.report_summary_error tenv proc_desc err_log location
               (ReportableErrorSummary
                  { diagnostic=
                      AccessToInvalidAddress
