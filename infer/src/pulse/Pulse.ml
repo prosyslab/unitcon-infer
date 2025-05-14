@@ -55,6 +55,23 @@ module PulseTransferFunctions = struct
 
   type analysis_data = PulseSummary.t InterproceduralAnalysis.t
 
+  type cost = AbductiveDomain.cost
+
+  let mk_cost_int i = AbductiveDomain.Int i
+
+  let mk_cost_inf = AbductiveDomain.PlusInf
+
+  let get_cost (exec, _) = ExecutionDomain.get_cost exec
+
+  let sort l =
+    List.sort l ~compare:(fun astate1 astate2 ->
+        AbductiveDomain.compare_cost (get_cost astate1) (get_cost astate2) )
+
+
+  let is_visited_path_line line (exec, _) = ExecutionDomain.is_visited_path_line line exec
+
+  let pp_cost (exec, _) = ExecutionDomain.get_cost exec |> AbductiveDomain.pp_cost
+
   let get_pvar_formals pname =
     IRAttributes.load pname |> Option.map ~f:ProcAttributes.get_pvar_formals
 
@@ -826,7 +843,7 @@ module PulseTransferFunctions = struct
           ([ContinueProgram astate], path, astate_n) )
 
 
-  let exec_instr ((astate, path), astate_n) analysis_data cfg_node instr :
+  let exec_instr ((astate, path), astate_n) cost analysis_data cfg_node instr :
       DisjDomain.t list * NonDisjDomain.t =
     let heap_size = heap_size () in
     ( match Config.pulse_max_heap with
@@ -839,6 +856,14 @@ module PulseTransferFunctions = struct
         raise AboutToOOM
     | _ ->
         () ) ;
+    let astate = ExecutionDomain.add_cost cost astate in
+    let astate =
+      ExecutionDomain.add_path_lines
+        (CFG.Node.underlying_node cfg_node |> Procdesc.Node.get_loc).line astate
+    in
+    L.debug Analysis Verbose "additional cost: %s, updated cost: %s\n"
+      (AbductiveDomain.pp_cost cost)
+      (AbductiveDomain.pp_cost (ExecutionDomain.get_cost astate)) ;
     let astates, path, astate_n =
       exec_instr_aux path astate astate_n analysis_data cfg_node instr
     in
@@ -854,7 +879,7 @@ module PulseTransferFunctions = struct
 end
 
 module DisjunctiveAnalyzer =
-  AbstractInterpreter.MakeDisjunctive
+  AbstractInterpreter.MakeDisjunctiveForPriority
     (PulseTransferFunctions)
     (struct
       let join_policy = `UnderApproximateAfter Config.pulse_max_disjuncts

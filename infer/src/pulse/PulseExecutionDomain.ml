@@ -111,6 +111,69 @@ let get_astate : t -> AbductiveDomain.t = function
       (astate :> AbductiveDomain.t)
 
 
+let get_cost astate = (get_astate astate).AbductiveDomain.cost
+
+let add_cost cost = function
+  | ContinueProgram astate ->
+      let cost = AbductiveDomain.add_cost cost astate.AbductiveDomain.cost in
+      ContinueProgram (AbductiveDomain.set_cost cost astate)
+  | ExceptionRaised astate ->
+      let cost = AbductiveDomain.add_cost cost astate.AbductiveDomain.cost in
+      ExceptionRaised (AbductiveDomain.set_cost cost astate)
+  | ExitProgram astate ->
+      let cost = AbductiveDomain.add_cost cost (astate :> AbductiveDomain.t).AbductiveDomain.cost in
+      ExitProgram (AbductiveDomain.summary_with_cost cost (astate :> AbductiveDomain.t))
+  | AbortProgram astate ->
+      let cost = AbductiveDomain.add_cost cost (astate :> AbductiveDomain.t).AbductiveDomain.cost in
+      AbortProgram (AbductiveDomain.summary_with_cost cost (astate :> AbductiveDomain.t))
+  | LatentAbortProgram {astate; latent_issue} ->
+      let cost = AbductiveDomain.add_cost cost (astate :> AbductiveDomain.t).AbductiveDomain.cost in
+      let astate = AbductiveDomain.summary_with_cost cost (astate :> AbductiveDomain.t) in
+      LatentAbortProgram {astate; latent_issue}
+  | LatentInvalidAccess {astate; address; must_be_valid; calling_context} ->
+      let cost = AbductiveDomain.add_cost cost (astate :> AbductiveDomain.t).AbductiveDomain.cost in
+      let astate = AbductiveDomain.summary_with_cost cost (astate :> AbductiveDomain.t) in
+      LatentInvalidAccess {astate; address; must_be_valid; calling_context}
+  | ISLLatentMemoryError astate ->
+      let cost = AbductiveDomain.add_cost cost (astate :> AbductiveDomain.t).AbductiveDomain.cost in
+      ISLLatentMemoryError (AbductiveDomain.summary_with_cost cost (astate :> AbductiveDomain.t))
+
+
+let is_visited_path_line line astate =
+  AbductiveDomain.PathLines.mem line (get_astate astate).AbductiveDomain.path_lines
+
+
+let add_path_lines line = function
+  | ContinueProgram astate ->
+      let path_lines = AbductiveDomain.add_path_lines line astate.AbductiveDomain.path_lines in
+      ContinueProgram (AbductiveDomain.set_path_lines path_lines astate)
+  | ExceptionRaised astate ->
+      let path_lines = AbductiveDomain.add_path_lines line astate.AbductiveDomain.path_lines in
+      ExceptionRaised (AbductiveDomain.set_path_lines path_lines astate)
+  | ExitProgram astate ->
+      let astate = (astate :> AbductiveDomain.t) in
+      let path_lines = AbductiveDomain.add_path_lines line astate.AbductiveDomain.path_lines in
+      ExitProgram (AbductiveDomain.summary_with_path_lines path_lines astate)
+  | AbortProgram astate ->
+      let astate = (astate :> AbductiveDomain.t) in
+      let path_lines = AbductiveDomain.add_path_lines line astate.AbductiveDomain.path_lines in
+      AbortProgram (AbductiveDomain.summary_with_path_lines path_lines astate)
+  | LatentAbortProgram {astate; latent_issue} ->
+      let astate = (astate :> AbductiveDomain.t) in
+      let path_lines = AbductiveDomain.add_path_lines line astate.AbductiveDomain.path_lines in
+      let astate = AbductiveDomain.summary_with_path_lines path_lines astate in
+      LatentAbortProgram {astate; latent_issue}
+  | LatentInvalidAccess {astate; address; must_be_valid; calling_context} ->
+      let astate = (astate :> AbductiveDomain.t) in
+      let path_lines = AbductiveDomain.add_path_lines line astate.AbductiveDomain.path_lines in
+      let astate = AbductiveDomain.summary_with_path_lines path_lines astate in
+      LatentInvalidAccess {astate; address; must_be_valid; calling_context}
+  | ISLLatentMemoryError astate ->
+      let astate = (astate :> AbductiveDomain.t) in
+      let path_lines = AbductiveDomain.add_path_lines line astate.AbductiveDomain.path_lines in
+      ISLLatentMemoryError (AbductiveDomain.summary_with_path_lines path_lines astate)
+
+
 let is_unsat_cheap exec_state = PathCondition.is_unsat_cheap (get_astate exec_state).path_condition
 
 type summary = AbductiveDomain.summary base_t [@@deriving compare, equal, yojson_of]

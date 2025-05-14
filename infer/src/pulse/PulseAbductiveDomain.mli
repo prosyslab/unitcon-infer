@@ -13,6 +13,20 @@ module BaseStack = PulseBaseStack
 module Decompiler = PulseDecompiler
 module PathContext = PulsePathContext
 
+type cost = PlusInf | Int of int
+
+val compare_cost : cost -> cost -> int
+
+val equal_cost : cost -> cost -> bool
+
+val add_cost : cost -> cost -> cost
+
+val pp_cost : cost -> string
+
+module PathLines : PrettyPrintable.PPSet with type elt = int
+
+val add_path_lines : int -> PathLines.t -> PathLines.t
+
 (** Layer on top of {!BaseDomain} to propagate operations on the current state to the pre-condition
     when necessary
 
@@ -49,7 +63,8 @@ type t = private
   ; need_specialization: bool
         (** a call that could be resolved via analysis-time specialization has been skipped *)
   ; skipped_calls: SkippedCalls.t  (** metadata: procedure calls for which no summary was found *)
-  }
+  ; path_lines: PathLines.t  (** intra procedural path lines *)
+  ; cost: cost }
 [@@deriving equal]
 
 val leq : lhs:t -> rhs:t -> bool
@@ -229,6 +244,10 @@ val set_need_specialization : t -> t
 
 val unset_need_specialization : t -> t
 
+val set_cost : cost -> t -> t
+
+val set_path_lines : PathLines.t -> t -> t
+
 val map_decompiler : t -> f:(Decompiler.t -> Decompiler.t) -> t
 
 val is_isl_without_allocation : t -> bool
@@ -241,6 +260,10 @@ type summary = private t [@@deriving compare, equal, yojson_of]
 val skipped_calls_match_pattern : summary -> bool
 
 val summary_with_need_specialization : summary -> summary
+
+val summary_with_cost : cost -> t -> summary
+
+val summary_with_path_lines : PathLines.t -> t -> summary
 
 val summary_of_post :
      Tenv.t

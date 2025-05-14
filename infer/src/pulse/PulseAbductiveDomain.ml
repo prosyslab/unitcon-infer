@@ -17,6 +17,58 @@ module Decompiler = PulseDecompiler
 module PathContext = PulsePathContext
 module UninitBlocklist = PulseUninitBlocklist
 
+type cost = PlusInf | Int of int
+
+let compare_cost c1 c2 =
+  match (c1, c2) with
+  | PlusInf, PlusInf ->
+      -1
+  | PlusInf, _ ->
+      1
+  | _, PlusInf ->
+      -1
+  | Int i1, Int i2 ->
+      Int.compare i1 i2
+
+
+let equal_cost c1 c2 =
+  match (c1, c2) with
+  | PlusInf, PlusInf ->
+      true
+  | PlusInf, _ ->
+      false
+  | _, PlusInf ->
+      false
+  | Int i1, Int i2 ->
+      Int.equal i1 i2
+
+
+let add_cost c1 c2 =
+  match (c1, c2) with
+  | PlusInf, _ ->
+      PlusInf
+  | _, PlusInf ->
+      PlusInf
+  | Int i1, Int i2 ->
+      Int (i1 + i2)
+
+
+let pp_cost = function PlusInf -> "Inf" | Int i -> string_of_int i
+
+let yojson_of_cost = function PlusInf -> `String "Inf" | Int i -> `String (string_of_int i)
+
+module PathLines = struct
+  include PrettyPrintable.MakePPSet (Int)
+
+  let yojson_of_line l = `Int l
+
+  let yojson_of_t set =
+    let lines = fold (fun l acc -> yojson_of_line l :: acc) set [] in
+    `List lines
+end
+
+let add_path_lines = PathLines.add
+
 (** signature common to the "normal" [Domain], representing the post at the current program point,
     and the inverted [PreDomain], representing the inferred pre-condition*)
 module type BaseDomainSig = sig
@@ -107,7 +159,9 @@ type t =
   ; decompiler: (Decompiler.t[@yojson.opaque] [@equal.ignore] [@compare.ignore])
   ; topl: (PulseTopl.state[@yojson.opaque])
   ; need_specialization: bool
-  ; skipped_calls: SkippedCalls.t }
+  ; skipped_calls: SkippedCalls.t
+  ; path_lines: PathLines.t
+  ; cost: cost }
 [@@deriving compare, equal, yojson_of]
 
 let pp f {post; pre; path_condition; decompiler; need_specialization; topl; skipped_calls} =
@@ -119,14 +173,15 @@ let pp f {post; pre; path_condition; decompiler; need_specialization; topl; skip
     need_specialization SkippedCalls.pp skipped_calls PulseTopl.pp_state topl
 
 
-let pp_summary f {post; pre; path_condition} =
+let pp_summary f {post; pre; path_condition; cost} =
   let itv = PathCondition.pp_summary f path_condition in
   let pre = F.asprintf "%a" PreDomain.pp_summary pre |> String.split ~on:';' in
   let post = F.asprintf "%a" PostDomain.pp_summary post |> String.split ~on:';' in
   match (pre, post) with
   | [pre_stack; pre_heap], [post_stack; post_heap] ->
       itv
-      @ [ ("Precond_Stack", pre_stack)
+      @ [ ("Cost", pp_cost cost)
+        ; ("Precond_Stack", pre_stack)
         ; ("Precond_Heap", pre_heap)
         ; ("Postcond_Stack", post_stack)
         ; ("Postcond_Heap", post_heap) ]
@@ -139,6 +194,10 @@ let set_path_condition path_condition astate = {astate with path_condition}
 let set_need_specialization astate = {astate with need_specialization= true}
 
 let unset_need_specialization astate = {astate with need_specialization= false}
+
+let set_cost cost astate = {astate with cost}
+
+let set_path_lines path_lines astate = {astate with path_lines}
 
 let map_decompiler astate ~f = {astate with decompiler= f astate.decompiler}
 
@@ -215,7 +274,9 @@ module Stack = struct
             ; decompiler= astate.decompiler
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
-            ; skipped_calls= astate.skipped_calls }
+            ; skipped_calls= astate.skipped_calls
+            ; path_lines= astate.path_lines
+            ; cost= astate.cost }
           , addr_hist )
     in
     let astate =
@@ -546,7 +607,9 @@ module Memory = struct
             ; decompiler= astate.decompiler
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
-            ; skipped_calls= astate.skipped_calls }
+            ; skipped_calls= astate.skipped_calls
+            ; path_lines= astate.path_lines
+            ; cost= astate.cost }
           , addr_hist_dst )
     in
     let astate =
@@ -708,7 +771,9 @@ let mk_initial tenv proc_name (proc_attrs : ProcAttributes.t) =
     ; decompiler= Decompiler.empty
     ; need_specialization= false
     ; topl= PulseTopl.start ()
-    ; skipped_calls= SkippedCalls.empty }
+    ; skipped_calls= SkippedCalls.empty
+    ; path_lines= PathLines.empty
+    ; cost= Int 0 }
   in
   let apply_aliases astate =
     (* If a function is alias-specialized, then we want to make sure all the captured
@@ -1208,6 +1273,10 @@ let is_pre_without_isl_abduced astate =
 type summary = t [@@deriving compare, equal, yojson_of]
 
 let summary_with_need_specialization summary = {summary with need_specialization= true}
+
+let summary_with_cost cost summary = {summary with cost}
+
+let summary_with_path_lines path_lines summary = {summary with path_lines}
 
 let is_heap_allocated {post; pre} v =
   BaseMemory.is_allocated (post :> BaseDomain.t).heap v

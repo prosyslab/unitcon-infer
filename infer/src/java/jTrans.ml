@@ -1022,7 +1022,7 @@ let instruction (context : JContext.t) pc instr : translation =
         let node = create_node node_kind (stml @ [sil_instr]) in
         Instr node
     | Return expr_option ->
-        let node_kind = Procdesc.Node.Stmt_node MethodBody in
+        let node_kind = Procdesc.Node.Stmt_node ReturnStmt in
         let node =
           match expr_option with
           | None ->

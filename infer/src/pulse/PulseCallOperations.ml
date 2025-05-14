@@ -152,8 +152,12 @@ let unknown_call ({PathContext.timestamp} as path) call_loc (reason : CallEvent.
 
 
 let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee_pname call_loc
-    callee_exec_state ~ret ~captured_formals ~captured_actuals ~formals ~actuals astate =
+    callee_exec_state ~ret ~captured_formals ~captured_actuals ~formals ~actuals astate
+    caller_astate =
   let open ExecutionDomain in
+  let callee_cost = ExecutionDomain.get_cost callee_exec_state in
+  let curr_cost = AbductiveDomain.add_cost caller_astate.AbductiveDomain.cost callee_cost in
+  L.debug Analysis Verbose "Cost of Callee is %s\n" (AbductiveDomain.pp_cost callee_cost) ;
   let ( let* ) x f =
     SatUnsat.bind
       (fun result ->
@@ -189,9 +193,11 @@ let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee
   match callee_exec_state with
   | ContinueProgram astate ->
       map_call_result ~is_isl_error_prepost:false astate ~f:(fun _subst astate ->
+          let astate = AbductiveDomain.set_cost curr_cost astate in
           Sat (Ok (ContinueProgram astate)) )
   | ExceptionRaised astate ->
       map_call_result ~is_isl_error_prepost:false astate ~f:(fun _subst astate ->
+          let astate = AbductiveDomain.set_cost curr_cost astate in
           Sat (Ok (ExceptionRaised astate)) )
   | AbortProgram astate
   | ExitProgram astate
@@ -200,6 +206,7 @@ let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee
       map_call_result ~is_isl_error_prepost:false
         (astate :> AbductiveDomain.t)
         ~f:(fun subst astate_post_call ->
+          let astate_post_call = AbductiveDomain.set_cost curr_cost astate_post_call in
           let* (astate_summary : AbductiveDomain.summary) =
             let open SatUnsat.Import in
             AbductiveDomain.summary_of_post tenv
@@ -285,6 +292,7 @@ let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee
         (astate :> AbductiveDomain.t)
         ~f:(fun _subst astate ->
           let open SatUnsat.Import in
+          let astate = AbductiveDomain.set_cost curr_cost astate in
           AbductiveDomain.summary_of_post tenv
             (Procdesc.get_proc_name caller_proc_desc)
             (Procdesc.get_attributes caller_proc_desc)
@@ -387,7 +395,7 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
         (* apply all pre/post specs *)
         match
           apply_callee tenv path ~caller_proc_desc callee_pname call_loc callee_exec_state
-            ~captured_formals ~captured_actuals ~formals ~actuals ~ret astate
+            ~captured_formals ~captured_actuals ~formals ~actuals ~ret astate caller_astate
         with
         | Unsat, new_contradiction ->
             (* couldn't apply pre/post pair *)

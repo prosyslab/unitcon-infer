@@ -83,6 +83,14 @@ module MakeDisjunctive
      and module TransferFunctions.CFG = T.CFG
      and type TransferFunctions.Domain.t = T.DisjDomain.t list * T.NonDisjDomain.t
 
+module MakeDisjunctiveForPriority
+    (T : TransferFunctions.DisjReadyForPriority)
+    (DConfig : TransferFunctions.DisjunctiveConfig) :
+  S
+    with type TransferFunctions.analysis_data = T.analysis_data
+     and module TransferFunctions.CFG = T.CFG
+     and type TransferFunctions.Domain.t = T.DisjDomain.t list * T.NonDisjDomain.t
+
 module type TransferFunctionsWithExceptions = sig
   include TransferFunctions.SIL
 

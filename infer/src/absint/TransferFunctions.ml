@@ -58,3 +58,35 @@ module type DisjReady = sig
 
   val pp_session_name : CFG.Node.t -> Format.formatter -> unit
 end
+
+module type DisjReadyForPriority = sig
+  module CFG : ProcCfg.S
+
+  module DisjDomain : AbstractDomain.Disjunct
+
+  module NonDisjDomain : AbstractDomain.WithBottomTop
+
+  type analysis_data
+
+  type cost
+
+  val exec_instr :
+       DisjDomain.t * NonDisjDomain.t
+    -> cost
+    -> analysis_data
+    -> CFG.Node.t
+    -> Sil.instr
+    -> DisjDomain.t list * NonDisjDomain.t
+
+  val mk_cost_int : int -> cost
+
+  val mk_cost_inf : cost
+
+  val sort : DisjDomain.t list -> DisjDomain.t list
+
+  val is_visited_path_line : int -> DisjDomain.t -> bool
+
+  val pp_session_name : CFG.Node.t -> Format.formatter -> unit
+
+  val pp_cost : DisjDomain.t -> string
+end

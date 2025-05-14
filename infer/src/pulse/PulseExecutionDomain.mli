@@ -42,4 +42,12 @@ val is_unsat_cheap : t -> bool
 
 val pp_summary : Format.formatter -> t -> (string * string) list
 
+val get_cost : t -> AbductiveDomain.cost
+
+val add_cost : AbductiveDomain.cost -> t -> t
+
+val is_visited_path_line : int -> t -> bool
+
+val add_path_lines : int -> t -> t
+
 type summary = AbductiveDomain.summary base_t [@@deriving compare, equal, yojson_of]

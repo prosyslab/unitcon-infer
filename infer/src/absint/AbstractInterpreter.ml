@@ -11,6 +11,8 @@ module L = Logging
 
 type exec_node_schedule_result = ReachedFixPoint | DidNotReachFixPoint
 
+let target_method = ref ""
+
 module VisitCount : sig
   type t = private int
 
@@ -340,6 +342,237 @@ struct
   let pp_session_name node f = T.pp_session_name node f
 end
 
+(** build a disjunctive domain and transfer functions *)
+module MakeDisjunctiveTransferFunctionsForPriority
+    (T : TransferFunctions.DisjReadyForPriority)
+    (DConfig : TransferFunctions.DisjunctiveConfig) =
+struct
+  module CFG = T.CFG
+
+  type analysis_data = T.analysis_data
+
+  let (`UnderApproximateAfter disjunct_limit) = DConfig.join_policy
+
+  module Domain = struct
+    (** a list [[x1; x2; ...; xN]] represents a disjunction [x1 ∨ x2 ∨ ... ∨ xN] *)
+    type t = T.DisjDomain.t list * T.NonDisjDomain.t
+
+    let append_no_duplicates_up_to leq ~limit from ~into ~into_length =
+      let rec aux acc n_acc from =
+        match from with
+        | hd :: tl when n_acc < limit ->
+            (* check with respect to the original [into] and not [acc] as we assume lists of
+               disjuncts are already deduplicated *)
+            if List.exists into ~f:(fun into_disj -> leq ~lhs:hd ~rhs:into_disj) then
+              (* [hd] is already implied by one of the states in [into]; skip it
+                 ([(a=>b) => (a\/b <=> b)]) *)
+              aux acc n_acc tl
+            else aux (hd :: acc) (n_acc + 1) tl
+        | _ ->
+            (* [from] is empty or [n_acc ≥ limit], either way we are done *) (acc, n_acc)
+      in
+      aux into into_length from
+
+
+    let length_and_cap_to_limit n l =
+      let length = List.length l in
+      (List.take l n, min length n)
+
+
+    (** Ignore states in [lhs] that are over-approximated in [rhs] according to [leq] and
+        vice-versa. Favors keeping states in [lhs]. Returns no more than [limit] disjuncts. *)
+    let join_up_to_with_leq ~limit leq ~into:lhs rhs =
+      let lhs = T.sort lhs in
+      let rhs = T.sort rhs in
+      let lhs, lhs_length = length_and_cap_to_limit limit lhs in
+      if phys_equal lhs rhs || lhs_length >= limit then (lhs, lhs_length)
+      else
+        (* this filters only in one direction for now, could be worth doing both ways *)
+        append_no_duplicates_up_to leq ~limit rhs ~into:lhs ~into_length:lhs_length
+
+
+    let join_up_to ~limit ~into:lhs rhs =
+      join_up_to_with_leq ~limit (fun ~lhs ~rhs -> T.DisjDomain.equal_fast lhs rhs) ~into:lhs rhs
+
+
+    let join (lhs_disj, lhs_non_disj) (rhs_disj, rhs_non_disj) =
+      ( join_up_to ~limit:disjunct_limit ~into:lhs_disj rhs_disj |> fst
+      , T.NonDisjDomain.join lhs_non_disj rhs_non_disj )
+
+
+    (** check if elements of [disj] appear in [of_] in the same order, using pointer equality on
+        abstract states to compare elements quickly *)
+    let rec is_trivial_subset disj ~of_ =
+      match (disj, of_) with
+      | [], _ ->
+          true
+      | x :: disj', y :: of' when T.DisjDomain.equal_fast x y ->
+          is_trivial_subset disj' ~of_:of'
+      | _, _ :: of' ->
+          is_trivial_subset disj ~of_:of'
+      | _, [] ->
+          false
+
+
+    let leq ~lhs ~rhs =
+      phys_equal lhs rhs
+      || is_trivial_subset (fst lhs) ~of_:(fst rhs)
+         && T.NonDisjDomain.leq ~lhs:(snd lhs) ~rhs:(snd rhs)
+
+
+    let widen ~prev ~next ~num_iters =
+      let (`UnderApproximateAfterNumIterations max_iter) = DConfig.widen_policy in
+      if phys_equal prev next then prev
+      else if num_iters > max_iter then (
+        L.d_printfln "Iteration %d is greater than max iter %d, stopping." num_iters max_iter ;
+        prev )
+      else
+        let post_disj, _ =
+          join_up_to_with_leq ~limit:disjunct_limit T.DisjDomain.leq ~into:(fst prev) (fst next)
+        in
+        let post =
+          (post_disj, T.NonDisjDomain.widen ~prev:(snd prev) ~next:(snd next) ~num_iters)
+        in
+        if leq ~lhs:post ~rhs:prev then prev else post
+
+
+    let pp f (disjuncts, non_disj) =
+      let pp_disjuncts f disjuncts =
+        List.iteri disjuncts ~f:(fun i disjunct ->
+            F.fprintf f "#%d: cost: %s @[%a@]@;" i (T.pp_cost disjunct) T.DisjDomain.pp disjunct )
+      in
+      F.fprintf f "@[<v>%d disjuncts:@;%a@]" (List.length disjuncts) pp_disjuncts disjuncts ;
+      F.fprintf f "\n Non-disj state:@[%a@]@;" T.NonDisjDomain.pp non_disj
+  end
+
+  let filter_disjuncts ~f ((l, nd) : Domain.t) =
+    let filtered = List.filter l ~f in
+    if List.is_empty filtered then ([], T.NonDisjDomain.bottom) else (filtered, nd)
+
+
+  let filter_normal x = filter_disjuncts x ~f:T.DisjDomain.is_normal
+
+  let filter_exceptional x = filter_disjuncts x ~f:T.DisjDomain.is_exceptional
+
+  let transform_on_exceptional_edge x =
+    let l, nd = filter_exceptional x in
+    (List.map l ~f:(fun d -> T.DisjDomain.exceptional_to_normal d), nd)
+
+
+  let is_early_return_node node =
+    let kind = Procdesc.Node.equal_nodekind (Procdesc.Node.get_kind node) in
+    Int.( > ) Config.target_file_line (Procdesc.Node.get_loc node).line
+    && (kind (Procdesc.Node.Stmt_node ReturnStmt) || kind Procdesc.Node.Exit_node)
+
+
+  let is_exception_node node =
+    let kind = Procdesc.Node.get_kind node in
+    Procdesc.Node.equal_nodekind kind (Procdesc.Node.Stmt_node Throw)
+    || Procdesc.Node.equal_nodekind kind (Procdesc.Node.Stmt_node ThrowNPE)
+
+
+  let is_target_proc node =
+    let loc = Procdesc.Node.get_loc node in
+    String.equal Config.target_file_name (SourceFile.to_rel_path loc.Location.file)
+    && String.equal !target_method (Procdesc.Node.get_proc_name node |> Procname.to_string)
+
+
+  let calculate_cost node disj =
+    let node = CFG.Node.underlying_node node in
+    let loc = Procdesc.Node.get_loc node in
+    L.debug Analysis Verbose "\nThe cost of %d line node is being calculated...\n" loc.line ;
+    if T.is_visited_path_line loc.line disj then (
+      L.debug Analysis Verbose "Already added line. To avoid double charging, returns 0\n" ;
+      T.mk_cost_int 0 )
+    else (
+      L.debug Analysis Verbose "New added line.\n" ;
+      if is_target_proc node then
+        let is_target_node = Int.equal Config.target_file_line loc.line in
+        if is_target_node then T.mk_cost_int 0
+        else if (not is_target_node) && (is_early_return_node node || is_exception_node node) then
+          T.mk_cost_inf
+        else T.mk_cost_int 1
+      else if is_exception_node node then T.mk_cost_inf
+      else T.mk_cost_int 1 )
+
+
+  let exec_instr (pre_disjuncts, non_disj) analysis_data node _ instr =
+    (* [remaining_disjuncts] is the number of remaining disjuncts taking into account disjuncts
+       already recorded in the post of a node (and therefore that will stay there).  It is always
+       set from [exec_node_instrs], so [remaining_disjuncts] should always be [Some _]. *)
+    let limit = Option.value_exn (AnalysisState.get_remaining_disjuncts ()) in
+    let pre_disjuncts = T.sort pre_disjuncts in
+    let (disjuncts, non_disj_astates), _ =
+      List.foldi pre_disjuncts
+        ~init:(([], []), 0)
+        ~f:(fun i (((post, non_disj_astates) as post_astate), n_disjuncts) pre_disjunct ->
+          if n_disjuncts >= limit then (
+            L.d_printfln "@[<v2>Reached max disjuncts limit, skipping disjunct #%d@;@]" i ;
+            (post_astate, n_disjuncts) )
+          else (
+            L.d_printfln "@[<v2>Executing instruction from disjunct #%d@;" i ;
+            let node_cost = calculate_cost node pre_disjunct in
+            let disjuncts', non_disj' =
+              T.exec_instr (pre_disjunct, non_disj) node_cost analysis_data node instr
+            in
+            ( if Config.write_html then
+                let n = List.length disjuncts' in
+                L.d_printfln "@]@\n@[Got %d disjunct%s back@]" n (if Int.equal n 1 then "" else "s")
+            ) ;
+            let post_disj', n = Domain.join_up_to ~limit ~into:post disjuncts' in
+            ((post_disj', non_disj' :: non_disj_astates), n) ) )
+    in
+    (disjuncts, List.fold ~init:T.NonDisjDomain.bottom ~f:T.NonDisjDomain.join non_disj_astates)
+
+
+  let exec_node_instrs old_state_opt ~exec_instr (pre, pre_non_disj) instrs =
+    let is_new_pre disjunct =
+      match old_state_opt with
+      | None ->
+          true
+      | Some {State.pre= previous_pre, _; _} ->
+          not
+            (List.exists previous_pre ~f:(fun prev_disj ->
+                 T.DisjDomain.equal_fast prev_disj disjunct ) )
+    in
+    let current_post_n : (T.DisjDomain.t list * T.NonDisjDomain.t list) * int =
+      match old_state_opt with
+      | None ->
+          (([], []), 0)
+      | Some {State.post= post_disjuncts, _; _} ->
+          ((post_disjuncts, []), List.length post_disjuncts)
+    in
+    let (disjuncts, non_disj_astates), _ =
+      List.foldi (List.rev pre) ~init:current_post_n
+        ~f:(fun i (((post, non_disj_astates) as post_astate), n_disjuncts) pre_disjunct ->
+          let limit = disjunct_limit - n_disjuncts in
+          AnalysisState.set_remaining_disjuncts limit ;
+          if limit <= 0 then (
+            L.d_printfln "@[Reached disjunct limit: already got %d disjuncts@]@;" limit ;
+            (post_astate, n_disjuncts) )
+          else if is_new_pre pre_disjunct then (
+            L.d_printfln "@[<v2>Executing node from disjunct #%d, setting limit to %d@;" i limit ;
+            let disjuncts', non_disj' =
+              Instrs.foldi ~init:([pre_disjunct], pre_non_disj) instrs ~f:exec_instr
+            in
+            L.d_printfln "@]@\n" ;
+            let disj', n = Domain.join_up_to ~limit:disjunct_limit ~into:post disjuncts' in
+            ((disj', non_disj' :: non_disj_astates), n) )
+          else (
+            L.d_printfln "@[Skipping already-visited disjunct #%d@]@;" i ;
+            (post_astate, n_disjuncts) ) )
+    in
+    let non_disjunct =
+      if Config.pulse_prevent_non_disj_top || List.exists disjuncts ~f:T.DisjDomain.is_executable
+      then List.fold ~init:T.NonDisjDomain.bottom ~f:T.NonDisjDomain.join non_disj_astates
+      else T.NonDisjDomain.top
+    in
+    (disjuncts, non_disjunct)
+
+
+  let pp_session_name node f = T.pp_session_name node f
+end
+
 module AbstractInterpreterCommon (TransferFunctions : NodeTransferFunctions) = struct
   module CFG = TransferFunctions.CFG
   module Node = CFG.Node
@@ -557,6 +790,18 @@ module MakeWithScheduler
 struct
   include AbstractInterpreterCommon (NodeTransferFunctions)
 
+  let set_target_method start_node exit_node =
+    let start_loc = Node.loc start_node in
+    let file = SourceFile.to_string start_loc.file in
+    if
+      String.equal file Config.target_file_name
+      && Int.( <= ) start_loc.line Config.target_file_line
+      && Int.( <= ) Config.target_file_line (Node.loc exit_node).line
+    then
+      let proc_node = Node.underlying_node start_node in
+      target_method := Procdesc.Node.get_proc_name proc_node |> Procname.to_string
+
+
   let rec exec_worklist ~pp_instr cfg analysis_data work_queue inv_map =
     match Scheduler.pop work_queue with
     | Some (_, [], work_queue') ->
@@ -585,6 +830,9 @@ struct
   (** compute and return an invariant map for [cfg] *)
   let exec_cfg_internal ~pp_instr cfg analysis_data ~do_narrowing:_ ~initial =
     let start_node = CFG.start_node cfg in
+    set_target_method start_node (CFG.exit_node cfg) ;
+    L.debug Analysis Verbose "Procname: %a\n" Procname.pp
+      (Procdesc.get_proc_name (CFG.proc_desc cfg)) ;
     let inv_map, _did_not_reach_fix_point =
       exec_node ~pp_instr analysis_data start_node ~is_loop_head:false ~is_narrowing:false initial
         InvariantMap.empty
@@ -729,6 +977,10 @@ module MakeDisjunctive
     (T : TransferFunctions.DisjReady)
     (DConfig : TransferFunctions.DisjunctiveConfig) =
   MakeWTONode (MakeDisjunctiveTransferFunctions (T) (DConfig))
+module MakeDisjunctiveForPriority
+    (T : TransferFunctions.DisjReadyForPriority)
+    (DConfig : TransferFunctions.DisjunctiveConfig) =
+  MakeWTONode (MakeDisjunctiveTransferFunctionsForPriority (T) (DConfig))
 
 module type MakeExceptional = functor (T : TransferFunctionsWithExceptions) ->
   S with module TransferFunctions = T
