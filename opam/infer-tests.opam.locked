@@ -32,7 +32,7 @@ depends: [
   "camlzip" {= "1.11"}
   "camomile" {= "1.0.2"}
   "charInfo_width" {= "1.1.0"}
-  "cmdliner" {= "1.1.1"}
+  "cmdliner" {>= "1.1.1"}
   "conf-autoconf" {= "0.1"}
   "conf-gmp" {= "4"}
   "conf-pkg-config" {= "2"}
