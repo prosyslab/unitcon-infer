@@ -200,6 +200,7 @@ let report_summary_error tenv proc_desc err_log location (access_error : AccessR
          let file = start_loc.file |> SourceFile.to_string in
          let last_line = (Procdesc.get_exit_node proc_desc |> Procdesc.Node.get_loc).line in
          let info = PulseUseInfo.search_err_proc proc_desc location in
+         let r_info = PulseRelatedInfo.search_err_proc proc_desc location in
          es_json
            (`Assoc
              ( ("Procname", `String pname)
@@ -207,6 +208,7 @@ let report_summary_error tenv proc_desc err_log location (access_error : AccessR
              :: ("StartLine", `Int start_line)
              :: ("LastLine", `Int last_line)
              :: ("UsedArg", PulseUseInfo.yojson_of_t info)
+             :: ("RelatedArg", PulseRelatedInfo.yojson_of_t r_info)
              :: cond ) ) ) ;
         report ~latent:true ~is_suppressed proc_desc err_log
           (AccessToInvalidAddress
@@ -243,6 +245,7 @@ let report_summary_error tenv proc_desc err_log location (access_error : AccessR
        let file = start_loc.file |> SourceFile.to_string in
        let last_line = (Procdesc.get_exit_node proc_desc |> Procdesc.Node.get_loc).line in
        let info = PulseUseInfo.search_err_proc proc_desc location in
+       let r_info = PulseRelatedInfo.search_err_proc proc_desc location in
        es_json
          (`Assoc
            ( ("Procname", `String pname)
@@ -250,6 +253,7 @@ let report_summary_error tenv proc_desc err_log location (access_error : AccessR
            :: ("StartLine", `Int start_line)
            :: ("LastLine", `Int last_line)
            :: ("UsedArg", PulseUseInfo.yojson_of_t info)
+           :: ("RelatedArg", PulseRelatedInfo.yojson_of_t r_info)
            :: cond ) ) ) ;
       match LatentIssue.should_report astate diagnostic with
       | `ReportNow ->
