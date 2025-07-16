@@ -1,72 +1,41 @@
 open! IStd
 module F = Format
 
-module DefUse = struct
-  type variable = Var.t * Location.t [@@deriving compare, equal]
+module G = struct
+  module RelatedVar = struct
+    include Var
 
-  type t =
-    | Use of variable
-    | Def of variable
-    | Connect of (variable * variable)
-    | Related of Var.t
-    | Param of Var.t
-  [@@deriving compare, equal]
+    let hash = Caml.Hashtbl.hash
+  end
 
-  let make_use v loc = Use (v, loc)
-
-  let make_def v loc = Def (v, loc)
-
-  (* x := y --> Connect (y, x) *)
-  let make_connect use def = Connect (use, def)
-
-  let make_related v = Related v
-
-  let make_param v = Param v
-
-  let yojson_of_t = function
-    | Use _ | Def _ | Connect _ | Param _ ->
-        `Null
-    | Related v ->
-        `String (F.asprintf "%a" Var.pp v)
-
-
-  let pp fmt = function
-    | Use (v, l) ->
-        F.fprintf fmt "Use %a (%a)" Var.pp v Location.pp l
-    | Def (v, l) ->
-        F.fprintf fmt "Def %a (%a)" Var.pp v Location.pp l
-    | Connect ((v1, l1), (v2, l2)) ->
-        F.fprintf fmt "Connect %a (%a) -> %a (%a)" Var.pp v1 Location.pp l1 Var.pp v2 Location.pp l2
-    | Related v ->
-        F.fprintf fmt "Related %a" Var.pp v
-    | Param v ->
-        F.fprintf fmt "Param %a" Var.pp v
+  include Graph.Persistent.Digraph.ConcreteBidirectional (RelatedVar)
 end
+
+module GraphPath = Graph.Path.Check (G)
 
 module NodeSet = struct
   include AbstractDomain.FiniteSet (Procdesc.Node)
 end
 
 module Set = struct
-  include AbstractDomain.FiniteSet (DefUse)
-
-  let yojson_of_t t =
-    `List
-      (fold
-         (fun elem acc ->
-           let elem = DefUse.yojson_of_t elem in
-           if Yojson.Safe.equal elem `Null || List.mem ~equal:Yojson.Safe.equal acc elem then acc
-           else elem :: acc )
-         t [] )
-
-
-  let pp fmt t =
-    F.fprintf fmt "[" ;
-    iter (fun v -> F.fprintf fmt "%a, " DefUse.pp v) t ;
-    F.fprintf fmt "]"
+  include AbstractDomain.FiniteSet (Var)
 end
 
-let yojson_of_t = Set.yojson_of_t
+let yojson_of_t t =
+  `List (List.fold ~init:[] ~f:(fun acc v -> `String (F.asprintf "%a" Var.pp v) :: acc) t)
+
+
+let find_relation params t g =
+  let pc = GraphPath.create g in
+  Set.fold
+    (fun dv acc ->
+      List.fold_left ~init:acc
+        ~f:(fun acc uv ->
+          let exist_path = try GraphPath.check_path pc uv dv with _ -> false in
+          if exist_path && not (List.mem ~equal:Var.equal acc uv) then uv :: acc else acc )
+        params )
+    t []
+
 
 let rec find_equal_node loc nodes =
   match nodes with
@@ -78,71 +47,50 @@ let rec find_equal_node loc nodes =
       None
 
 
-let add_connect_relation t =
-  let add_connect_var (def : DefUse.t) (use : DefUse.t) t =
-    match (def, use) with
-    | Def (dv, dl), Use (uv, ul) when Location.equal dl ul ->
-        Set.add (DefUse.make_connect (uv, ul) (dv, dl)) t
-    | Connect (u1, (dv, _)), Connect ((uv, _), d2) when Var.equal dv uv ->
-        Set.add (DefUse.make_connect u1 d2) t
-    | _, _ ->
-        t
-  in
-  Set.fold (fun e1 acc -> Set.fold (fun e2 set -> add_connect_var e1 e2 set) t acc) t t
+let add_used_at_error exp t =
+  let vs = Var.get_all_vars_in_exp exp in
+  Sequence.fold ~init:t
+    ~f:(fun t v -> match v with Var.ProgramVar _ -> Set.add v t | Var.LogicalVar _ -> t)
+    vs
 
 
-let rec fix_point_connect t =
-  let new_relation = add_connect_relation t in
-  if Set.equal new_relation t then new_relation else fix_point_connect new_relation
+let add_relation dv uv g = G.add_edge g uv dv
+
+let add_relation_all dv exp g =
+  let vs = Var.get_all_vars_in_exp exp in
+  Sequence.fold ~init:g ~f:(fun g v -> add_relation dv v g) vs
 
 
-let add_related_relation err_loc t =
-  let err_used_var =
-    Set.fold
-      (fun e acc ->
-        match e with Use (v, l) when Location.equal err_loc l -> (v, l) :: acc | _ -> acc )
-      t []
-  in
-  Set.fold
-    (fun e acc ->
-      match e with
-      | Connect ((uv, _), d)
-        when List.mem ~equal:DefUse.equal_variable err_used_var d
-             && Set.mem (DefUse.make_param uv) t ->
-          Set.add (DefUse.make_related uv) acc
-      | _ ->
-          acc )
-    t t
-
-
-let search_instr instr t =
-  let add_use_var v loc t = Set.add (DefUse.make_use v loc) t in
-  let add_def_var v loc t = Set.add (DefUse.make_def v loc) t in
-  let add_use_var_from_exp e loc t =
-    let vs = Var.get_all_vars_in_exp e in
-    Sequence.fold ~init:t ~f:(fun t v -> add_use_var v loc t) vs
-  in
+let search_instr err_loc t instr g =
   match instr with
-  | Sil.Load {e: Exp.t; loc: Location.t} ->
-      add_use_var_from_exp e loc t
+  | Sil.Load {id: Ident.t; e: Exp.t; loc: Location.t} ->
+      let dv = Var.of_id id in
+      let t = if Location.equal loc err_loc then add_used_at_error e t else t in
+      (t, add_relation_all dv e g)
   | Sil.Store {e1: Exp.t; e2: Exp.t; loc: Location.t} ->
-      let e1_vs = Var.get_all_vars_in_exp e1 in
-      let e1_t = Sequence.fold ~init:t ~f:(fun t v -> add_def_var v loc t) e1_vs in
-      let e2_vs = Var.get_all_vars_in_exp e2 in
-      Sequence.fold ~init:e1_t ~f:(fun t v -> add_use_var v loc t) e2_vs
-  | Sil.Call (_, _, arg_ts, loc, _) ->
-      List.fold_left ~init:t
-        ~f:(fun t (exp, _) ->
-          let arg_vs = Var.get_all_vars_in_exp exp in
-          Sequence.fold ~init:t ~f:(fun t v -> add_use_var v loc t) arg_vs )
-        arg_ts
+      let t = if Location.equal loc err_loc then add_used_at_error e2 t else t in
+      let g =
+        Var.get_all_vars_in_exp e1
+        |> Sequence.fold ~init:g ~f:(fun g dv ->
+               Var.get_all_vars_in_exp e2
+               |> Sequence.fold ~init:g ~f:(fun g uv -> add_relation dv uv g) )
+      in
+      (t, g)
+  | Sil.Call ((id, _), _, arg_ts, loc, _) ->
+      let dv = Var.of_id id in
+      let t =
+        if Location.equal loc err_loc then
+          List.fold_left ~init:t ~f:(fun t (exp, _) -> add_used_at_error exp t) arg_ts
+        else t
+      in
+      (t, List.fold ~init:g ~f:(fun g (exp, _) -> add_relation_all dv exp g) arg_ts)
   | _ ->
-      t
+      (t, g)
 
 
-let search_one_node node t =
+let search_one_node err_loc t node g =
   let instrs = Procdesc.Node.get_instrs node in
-  Instrs.fold ~init:t ~f:(fun t instr -> search_instr instr t) instrs
+  Instrs.fold ~init:(t, g) ~f:(fun (t, g) instr -> search_instr err_loc t instr g) instrs
 
 
 let rec get_nodes_from_exn_node node t =
@@ -158,17 +106,20 @@ let rec get_nodes_from_exn_node node t =
 
 
 let search_err_proc proc_desc location =
-  let added_formals =
+  let formals =
     Procdesc.get_pvar_formals proc_desc
-    |> List.fold_left ~init:Set.empty ~f:(fun acc (pvar, _) ->
-           Set.add (DefUse.make_param (Var.of_pvar pvar)) acc )
+    |> List.fold_left ~init:[] ~f:(fun acc (pvar, _) -> Var.of_pvar pvar :: acc)
   in
   let nodes = Procdesc.get_nodes proc_desc in
   let exn_node = find_equal_node location nodes in
   match exn_node with
   | Some node ->
       let all_nodes = get_nodes_from_exn_node node NodeSet.empty in
-      NodeSet.fold (fun node t -> search_one_node node t) all_nodes added_formals
-      |> fix_point_connect |> add_related_relation location
+      let t, g =
+        NodeSet.fold
+          (fun node (t, g) -> search_one_node location t node g)
+          all_nodes (Set.empty, G.empty)
+      in
+      find_relation formals t g
   | None ->
-      Set.empty
+      []
