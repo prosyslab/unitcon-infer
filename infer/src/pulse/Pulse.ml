@@ -667,6 +667,7 @@ module PulseTransferFunctions = struct
       (astate_n : NonDisjDomain.t)
       ({InterproceduralAnalysis.tenv; proc_desc; err_log} as analysis_data) _cfg_node
       (instr : Sil.instr) : ExecutionDomain.t list * PathContext.t * NonDisjDomain.t =
+    let astate = ExecutionDomain.update_vars_info proc_desc astate instr in
     match astate with
     | AbortProgram _ | ISLLatentMemoryError _ | LatentAbortProgram _ | LatentInvalidAccess _ ->
         ([astate], path, astate_n)

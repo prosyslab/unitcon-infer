@@ -40,7 +40,7 @@ val continue : AbductiveDomain.t -> t
 val is_unsat_cheap : t -> bool
 (** see {!PulsePathCondition.is_unsat_cheap} *)
 
-val pp_summary : Format.formatter -> t -> (string * string) list
+val pp_summary : Format.formatter -> t -> (string * Yojson.Safe.t) list
 
 val get_cost : t -> AbductiveDomain.cost
 
@@ -49,5 +49,7 @@ val add_cost : AbductiveDomain.cost -> t -> t
 val is_visited_path_line : int -> t -> bool
 
 val add_path_lines : int -> t -> t
+
+val update_vars_info : Procdesc.t -> t -> Sil.instr -> AbductiveDomain.t base_t
 
 type summary = AbductiveDomain.summary base_t [@@deriving compare, equal, yojson_of]

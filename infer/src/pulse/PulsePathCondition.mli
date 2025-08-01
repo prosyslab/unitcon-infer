@@ -19,7 +19,7 @@ val false_ : t
 
 val pp : F.formatter -> t -> unit
 
-val pp_summary : F.formatter -> t -> (string * string) list
+val pp_summary : F.formatter -> t -> (string * Yojson.Safe.t) list
 
 type new_eqs = PulseFormula.new_eqs
 

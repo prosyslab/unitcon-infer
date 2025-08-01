@@ -26,4 +26,4 @@ val pp : Format.formatter -> t -> unit
 val pp_summary :
      Format.formatter
   -> ExecutionDomain.summary list
-  -> [> `List of [> `Assoc of (string * [> `String of string]) list] list]
+  -> [> `List of [> `Assoc of (string * Yojson.Safe.t) list] list]

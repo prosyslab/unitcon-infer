@@ -25,8 +25,7 @@ let pp_summary fmt pre_posts =
   let list =
     List.map pre_posts ~f:(fun (pre_post : ExecutionDomain.summary) ->
         let prepost = ExecutionDomain.pp_summary fmt (pre_post :> ExecutionDomain.t) in
-        let json_prepost = List.map prepost ~f:(fun (name, value) -> (name, `String value)) in
-        `Assoc json_prepost )
+        `Assoc prepost )
   in
   `List list
 

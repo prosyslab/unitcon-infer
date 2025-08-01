@@ -16,6 +16,7 @@ module BaseAddressAttributes = PulseBaseAddressAttributes
 module Decompiler = PulseDecompiler
 module PathContext = PulsePathContext
 module UninitBlocklist = PulseUninitBlocklist
+module VarsInfo = PulseVarsInfo
 
 type cost = PlusInf | Int of int
 
@@ -156,6 +157,7 @@ type t =
   { post: PostDomain.t
   ; pre: PreDomain.t
   ; path_condition: PathCondition.t
+  ; vars_info: VarsInfo.t
   ; decompiler: (Decompiler.t[@yojson.opaque] [@equal.ignore] [@compare.ignore])
   ; topl: (PulseTopl.state[@yojson.opaque])
   ; need_specialization: bool
@@ -173,18 +175,19 @@ let pp f {post; pre; path_condition; decompiler; need_specialization; topl; skip
     need_specialization SkippedCalls.pp skipped_calls PulseTopl.pp_state topl
 
 
-let pp_summary f {post; pre; path_condition; cost} =
+let pp_summary f {post; pre; path_condition; vars_info; cost} =
   let itv = PathCondition.pp_summary f path_condition in
+  let vars_info = VarsInfo.pp_summary f vars_info in
   let pre = F.asprintf "%a" PreDomain.pp_summary pre |> String.split ~on:';' in
   let post = F.asprintf "%a" PostDomain.pp_summary post |> String.split ~on:';' in
   match (pre, post) with
   | [pre_stack; pre_heap], [post_stack; post_heap] ->
-      itv
-      @ [ ("Cost", pp_cost cost)
-        ; ("Precond_Stack", pre_stack)
-        ; ("Precond_Heap", pre_heap)
-        ; ("Postcond_Stack", post_stack)
-        ; ("Postcond_Heap", post_heap) ]
+      (itv @ vars_info)
+      @ [ ("Cost", `String (pp_cost cost))
+        ; ("Precond_Stack", `String pre_stack)
+        ; ("Precond_Heap", `String pre_heap)
+        ; ("Postcond_Stack", `String post_stack)
+        ; ("Postcond_Heap", `String post_heap) ]
   | _ ->
       itv
 
@@ -198,6 +201,8 @@ let unset_need_specialization astate = {astate with need_specialization= false}
 let set_cost cost astate = {astate with cost}
 
 let set_path_lines path_lines astate = {astate with path_lines}
+
+let set_vars_info vars_info astate = {astate with vars_info}
 
 let map_decompiler astate ~f = {astate with decompiler= f astate.decompiler}
 
@@ -271,6 +276,7 @@ module Stack = struct
           ( { post= PostDomain.update astate.post ~stack:post_stack ~heap:post_heap ~attrs:post_attrs
             ; pre
             ; path_condition= astate.path_condition
+            ; vars_info= astate.vars_info
             ; decompiler= astate.decompiler
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
@@ -604,6 +610,7 @@ module Memory = struct
           ( { post= PostDomain.update astate.post ~heap:post_heap
             ; pre= PreDomain.update astate.pre ~heap:foot_heap
             ; path_condition= astate.path_condition
+            ; vars_info= astate.vars_info
             ; decompiler= astate.decompiler
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
@@ -768,6 +775,7 @@ let mk_initial tenv proc_name (proc_attrs : ProcAttributes.t) =
     { pre
     ; post
     ; path_condition= PathCondition.true_
+    ; vars_info= VarsInfo.empty
     ; decompiler= Decompiler.empty
     ; need_specialization= false
     ; topl= PulseTopl.start ()
@@ -1277,6 +1285,8 @@ let summary_with_need_specialization summary = {summary with need_specialization
 let summary_with_cost cost summary = {summary with cost}
 
 let summary_with_path_lines path_lines summary = {summary with path_lines}
+
+let summary_with_vars_info vars_info summary = {summary with vars_info}
 
 let is_heap_allocated {post; pre} v =
   BaseMemory.is_allocated (post :> BaseDomain.t).heap v

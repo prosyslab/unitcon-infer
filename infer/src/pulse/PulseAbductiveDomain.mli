@@ -12,6 +12,7 @@ module BaseMemory = PulseBaseMemory
 module BaseStack = PulseBaseStack
 module Decompiler = PulseDecompiler
 module PathContext = PulsePathContext
+module VarsInfo = PulseVarsInfo
 
 type cost = PlusInf | Int of int
 
@@ -57,6 +58,7 @@ type t = private
   ; path_condition: PathCondition.t
         (** arithmetic facts true along the path (holding for both [pre] and [post] since abstract
             values are immutable) *)
+  ; vars_info: VarsInfo.t
   ; decompiler: Decompiler.t
   ; topl: PulseTopl.state
         (** state at of the Topl monitor at the current program point, when Topl is enabled *)
@@ -71,7 +73,7 @@ val leq : lhs:t -> rhs:t -> bool
 
 val pp : Format.formatter -> t -> unit
 
-val pp_summary : Format.formatter -> t -> (string * string) list
+val pp_summary : Format.formatter -> t -> (string * Yojson.Safe.t) list
 
 val mk_initial : Tenv.t -> Procname.t -> ProcAttributes.t -> t
 
@@ -248,6 +250,8 @@ val set_cost : cost -> t -> t
 
 val set_path_lines : PathLines.t -> t -> t
 
+val set_vars_info : VarsInfo.t -> t -> t
+
 val map_decompiler : t -> f:(Decompiler.t -> Decompiler.t) -> t
 
 val is_isl_without_allocation : t -> bool
@@ -264,6 +268,8 @@ val summary_with_need_specialization : summary -> summary
 val summary_with_cost : cost -> t -> summary
 
 val summary_with_path_lines : PathLines.t -> t -> summary
+
+val summary_with_vars_info : VarsInfo.t -> t -> summary
 
 val summary_of_post :
      Tenv.t

@@ -53,7 +53,7 @@ let pp fmt {is_unsat; bo_itvs; citvs; formula} =
 let pp_summary _ {bo_itvs; citvs} =
   let boitv = F.asprintf "%a" BoItvs.pp bo_itvs in
   let citv = F.asprintf "%a" CItvs.pp citvs in
-  [("BoItv", boitv); ("CItv", citv)]
+  [("BoItv", `String boitv); ("CItv", `String citv)]
 
 
 let true_ = {is_unsat= false; bo_itvs= BoItvs.empty; citvs= CItvs.empty; formula= Formula.ttrue}

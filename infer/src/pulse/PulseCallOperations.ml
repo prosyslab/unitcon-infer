@@ -348,7 +348,8 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
   in
   let empty_check =
     List.fold_left (AbductiveDomain.pp_summary Format.std_formatter caller_astate) ~init:true
-      ~f:(fun e_check (_, value) -> e_check && String.equal value "{ }" )
+      ~f:(fun e_check (_, value) ->
+        match value with `String value -> e_check && String.equal value "{ }" | _ -> false )
   in
   if Int.equal (List.length actuals) 0 then ()
   else if check then ()
@@ -357,12 +358,7 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
     check_pair := call_pair :: !check_pair ;
     let caller = Procdesc.get_proc_name caller_proc_desc |> Procname.to_string in
     let callee = callee_pname |> Procname.to_string in
-    let cond =
-      List.fold
-        ~f:(fun lst (title, value) -> (title, `String value) :: lst)
-        ~init:[]
-        (AbductiveDomain.pp_summary Format.std_formatter caller_astate)
-    in
+    let cond = AbductiveDomain.pp_summary Format.std_formatter caller_astate in
     let actual =
       List.fold
         ~f:(fun lst ((ab_val, _), _) -> Format.asprintf "%a" AbstractValue.pp ab_val :: lst)
