@@ -130,6 +130,16 @@ let and_equal op1 op2 phi =
   ({is_unsat; bo_itvs; citvs; formula}, new_eqs)
 
 
+let and_neq_null v phi =
+  let null = Const.Cint IntLit.null in
+  let+ {is_unsat; bo_itvs; citvs; formula} = phi in
+  let+| formula, new_eqs =
+    Formula.and_not_equal (AbstractValueOperand v) (ConstOperand null) formula
+  in
+  let citvs = CItvs.add v (CItv.not_equal_to IntLit.null) citvs in
+  ({is_unsat; bo_itvs; citvs; formula}, new_eqs)
+
+
 let simplify tenv ~can_be_pruned ~keep ~get_dynamic_type phi =
   if phi.is_unsat then Unsat
   else

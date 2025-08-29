@@ -27,6 +27,11 @@ let map_path_condition_with_ret ~f astate ret =
       (result, AbductiveDomain.incorporate_new_eqs_on_val new_eqs ret) )
 
 
+let map_path_condition_only_set ~f astate =
+  let phi, _ = f astate.AbductiveDomain.path_condition in
+  AbductiveDomain.set_path_condition phi astate
+
+
 let and_nonnegative v astate =
   map_path_condition astate ~f:(fun phi -> PathCondition.and_nonnegative v phi)
 
@@ -41,6 +46,10 @@ let and_eq_int v i astate =
 
 let and_eq_const v c astate =
   map_path_condition astate ~f:(fun phi -> PathCondition.and_eq_const v c phi)
+
+
+let and_neq_null v astate =
+  map_path_condition_only_set astate ~f:(fun phi -> PathCondition.and_neq_null v phi)
 
 
 type operand = PathCondition.operand =

@@ -12,7 +12,7 @@ module BaseMemory = PulseBaseMemory
 module BaseStack = PulseBaseStack
 module Decompiler = PulseDecompiler
 module PathContext = PulsePathContext
-module VarsInfo = PulseVarsInfo
+module BaseDependency = PulseBaseDependency
 
 type cost = PlusInf | Int of int
 
@@ -58,7 +58,6 @@ type t = private
   ; path_condition: PathCondition.t
         (** arithmetic facts true along the path (holding for both [pre] and [post] since abstract
             values are immutable) *)
-  ; vars_info: VarsInfo.t
   ; decompiler: Decompiler.t
   ; topl: PulseTopl.state
         (** state at of the Topl monitor at the current program point, when Topl is enabled *)
@@ -80,6 +79,36 @@ val mk_initial : Tenv.t -> Procname.t -> ProcAttributes.t -> t
 val get_pre : t -> BaseDomain.t
 
 val get_post : t -> BaseDomain.t
+
+module Dependency : sig
+  val of_abstract_value : AbstractValue.t -> BaseDependency.key
+
+  val of_var : Var.t -> BaseDependency.key
+
+  val empty_dep : BaseDependency.value
+
+  val pp : Format.formatter -> BaseDependency.t -> unit
+
+  val eval : BaseDependency.key -> t -> t * BaseDependency.value
+
+  val add_elem : BaseDependency.key -> BaseDependency.value -> BaseDependency.value
+
+  val union_one_dep : BaseDependency.value -> BaseDependency.value -> BaseDependency.value
+
+  val add : BaseDependency.key -> BaseDependency.value -> t -> t
+
+  val combine : BaseDependency.key -> BaseDependency.value -> t -> t
+
+  val remove_vars : Var.t list -> t -> t
+
+  val find_opt : BaseDependency.key -> t -> BaseDependency.value option
+
+  val find : BaseDependency.key -> t -> BaseDependency.value
+
+  val mem : BaseDependency.key -> t -> bool
+
+  val exists : (BaseDependency.key -> BaseDependency.value -> bool) -> t -> bool
+end
 
 (** stack operations like {!BaseStack} but that also take care of propagating facts to the
     precondition *)
@@ -250,8 +279,6 @@ val set_cost : cost -> t -> t
 
 val set_path_lines : PathLines.t -> t -> t
 
-val set_vars_info : VarsInfo.t -> t -> t
-
 val map_decompiler : t -> f:(Decompiler.t -> Decompiler.t) -> t
 
 val is_isl_without_allocation : t -> bool
@@ -268,8 +295,6 @@ val summary_with_need_specialization : summary -> summary
 val summary_with_cost : cost -> t -> summary
 
 val summary_with_path_lines : PathLines.t -> t -> summary
-
-val summary_with_vars_info : VarsInfo.t -> t -> summary
 
 val summary_of_post :
      Tenv.t

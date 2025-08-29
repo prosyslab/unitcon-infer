@@ -13,10 +13,10 @@ module BaseDomain = PulseBaseDomain
 module BaseStack = PulseBaseStack
 module BaseMemory = PulseBaseMemory
 module BaseAddressAttributes = PulseBaseAddressAttributes
+module BaseDependency = PulseBaseDependency
 module Decompiler = PulseDecompiler
 module PathContext = PulsePathContext
 module UninitBlocklist = PulseUninitBlocklist
-module VarsInfo = PulseVarsInfo
 
 type cost = PlusInf | Int of int
 
@@ -84,7 +84,13 @@ module type BaseDomainSig_ = sig
 
   val empty : t
 
-  val update : ?stack:BaseStack.t -> ?heap:BaseMemory.t -> ?attrs:BaseAddressAttributes.t -> t -> t
+  val update :
+       ?stack:BaseStack.t
+    -> ?heap:BaseMemory.t
+    -> ?dependency:BaseDependency.t
+    -> ?attrs:BaseAddressAttributes.t
+    -> t
+    -> t
 
   val filter_addr : f:(AbstractValue.t -> bool) -> t -> t
   (** filter both heap and attrs *)
@@ -104,7 +110,10 @@ end
 (* just to expose record field names without having to type
    [BaseDomain.heap] *)
 type base_domain = BaseDomain.t =
-  {heap: BaseMemory.t; stack: BaseStack.t; attrs: BaseAddressAttributes.t}
+  { heap: BaseMemory.t
+  ; stack: BaseStack.t
+  ; dependency: BaseDependency.t
+  ; attrs: BaseAddressAttributes.t }
 
 (** represents the post abstract state at each program point *)
 module PostDomain : sig
@@ -114,17 +123,19 @@ module PostDomain : sig
 end = struct
   include BaseDomain
 
-  let update ?stack ?heap ?attrs foot =
-    let new_stack, new_heap, new_attrs =
+  let update ?stack ?heap ?dependency ?attrs foot =
+    let new_stack, new_heap, new_dependency, new_attrs =
       ( Option.value ~default:foot.stack stack
       , Option.value ~default:foot.heap heap
+      , Option.value ~default:foot.dependency dependency
       , Option.value ~default:foot.attrs attrs )
     in
     if
       phys_equal new_stack foot.stack && phys_equal new_heap foot.heap
+      && phys_equal new_dependency foot.dependency
       && phys_equal new_attrs foot.attrs
     then foot
-    else {stack= new_stack; heap= new_heap; attrs= new_attrs}
+    else {stack= new_stack; heap= new_heap; dependency= new_dependency; attrs= new_attrs}
 
 
   let filter_addr ~f foot =
@@ -157,7 +168,6 @@ type t =
   { post: PostDomain.t
   ; pre: PreDomain.t
   ; path_condition: PathCondition.t
-  ; vars_info: VarsInfo.t
   ; decompiler: (Decompiler.t[@yojson.opaque] [@equal.ignore] [@compare.ignore])
   ; topl: (PulseTopl.state[@yojson.opaque])
   ; need_specialization: bool
@@ -175,19 +185,20 @@ let pp f {post; pre; path_condition; decompiler; need_specialization; topl; skip
     need_specialization SkippedCalls.pp skipped_calls PulseTopl.pp_state topl
 
 
-let pp_summary f {post; pre; path_condition; vars_info; cost} =
+let pp_summary f {post; pre; path_condition; cost} =
   let itv = PathCondition.pp_summary f path_condition in
-  let vars_info = VarsInfo.pp_summary f vars_info in
   let pre = F.asprintf "%a" PreDomain.pp_summary pre |> String.split ~on:';' in
   let post = F.asprintf "%a" PostDomain.pp_summary post |> String.split ~on:';' in
   match (pre, post) with
-  | [pre_stack; pre_heap], [post_stack; post_heap] ->
-      (itv @ vars_info)
+  | [pre_stack; pre_heap; pre_dep], [post_stack; post_heap; post_dep] ->
+      itv
       @ [ ("Cost", `String (pp_cost cost))
         ; ("Precond_Stack", `String pre_stack)
         ; ("Precond_Heap", `String pre_heap)
+        ; ("Precond_Dependency", `String pre_dep)
         ; ("Postcond_Stack", `String post_stack)
-        ; ("Postcond_Heap", `String post_heap) ]
+        ; ("Postcond_Heap", `String post_heap)
+        ; ("Postcond_Dependency", `String post_dep) ]
   | _ ->
       itv
 
@@ -201,8 +212,6 @@ let unset_need_specialization astate = {astate with need_specialization= false}
 let set_cost cost astate = {astate with cost}
 
 let set_path_lines path_lines astate = {astate with path_lines}
-
-let set_vars_info vars_info astate = {astate with vars_info}
 
 let map_decompiler astate ~f = {astate with decompiler= f astate.decompiler}
 
@@ -225,6 +234,89 @@ let leq ~lhs ~rhs =
 
 
 let initialize address astate = {astate with post= PostDomain.initialize address astate.post}
+
+module Dependency = struct
+  let of_abstract_value = BaseDependency.of_abstract_value
+
+  let of_var = BaseDependency.of_var
+
+  let empty_dep = BaseDependency.Set.empty
+
+  let pp = BaseDependency.pp
+
+  let map_post_dependency ~f astate =
+    let new_post =
+      PostDomain.update astate.post ~dependency:(f (astate.post :> base_domain).dependency)
+    in
+    if phys_equal new_post astate.post then astate else {astate with post= new_post}
+
+
+  let eval addr astate =
+    let astate, deps =
+      match BaseDependency.find_opt addr (astate.post :> base_domain).dependency with
+      | Some deps ->
+          (astate, deps)
+      | None ->
+          let deps = BaseDependency.Set.empty in
+          let post_deps = BaseDependency.add addr deps (astate.post :> base_domain).dependency in
+          ( { post= PostDomain.update astate.post ~dependency:post_deps
+            ; pre= astate.pre
+            ; path_condition= astate.path_condition
+            ; decompiler= astate.decompiler
+            ; need_specialization= astate.need_specialization
+            ; topl= astate.topl
+            ; skipped_calls= astate.skipped_calls
+            ; path_lines= astate.path_lines
+            ; cost= astate.cost }
+          , deps )
+    in
+    (astate, deps)
+
+
+  let add_elem elem deps = BaseDependency.Set.add elem deps
+
+  let union_one_dep deps deps' = BaseDependency.Set.union deps deps'
+
+  let add addr deps astate =
+    map_post_dependency astate ~f:(fun dep -> BaseDependency.add addr deps dep)
+
+
+  let combine addr deps astate =
+    map_post_dependency astate ~f:(fun dep ->
+        match BaseDependency.find_opt addr dep with
+        | Some deps' ->
+            let new_deps = union_one_dep deps deps' in
+            BaseDependency.add addr new_deps dep
+        | None ->
+            BaseDependency.add addr deps dep )
+
+
+  let remove_vars vars astate =
+    let vars_to_remove =
+      let is_in_post_stack var astate = BaseStack.mem var (astate.post :> base_domain).stack in
+      List.filter vars ~f:(fun var -> not (is_in_post_stack var astate))
+    in
+    map_post_dependency astate ~f:(fun dependency ->
+        BaseDependency.filter
+          (fun symbol _ ->
+            match symbol with
+            | BaseDependency.Symbol.AbsSym _ ->
+                true
+            | BaseDependency.Symbol.VarSym var ->
+                not (List.mem ~equal:Var.equal vars_to_remove var) )
+          dependency )
+
+
+  let find_opt addr astate = BaseDependency.find_opt addr (astate.post :> base_domain).dependency
+
+  let find addr astate =
+    match find_opt addr astate with Some dep -> dep | None -> BaseDependency.Set.empty
+
+
+  let mem addr astate = BaseDependency.mem addr (astate.post :> base_domain).dependency
+
+  let exists f astate = BaseDependency.exists f (astate.post :> base_domain).dependency
+end
 
 module Stack = struct
   let is_abducible astate var =
@@ -276,7 +368,6 @@ module Stack = struct
           ( { post= PostDomain.update astate.post ~stack:post_stack ~heap:post_heap ~attrs:post_attrs
             ; pre
             ; path_condition= astate.path_condition
-            ; vars_info= astate.vars_info
             ; decompiler= astate.decompiler
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
@@ -610,7 +701,6 @@ module Memory = struct
           ( { post= PostDomain.update astate.post ~heap:post_heap
             ; pre= PreDomain.update astate.pre ~heap:foot_heap
             ; path_condition= astate.path_condition
-            ; vars_info= astate.vars_info
             ; decompiler= astate.decompiler
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
@@ -775,7 +865,6 @@ let mk_initial tenv proc_name (proc_attrs : ProcAttributes.t) =
     { pre
     ; post
     ; path_condition= PathCondition.true_
-    ; vars_info= VarsInfo.empty
     ; decompiler= Decompiler.empty
     ; need_specialization= false
     ; topl= PulseTopl.start ()
@@ -1216,8 +1305,10 @@ let restore_formals_for_summary astate =
       addr astate
   in
   let post_stack =
+    (* We are interested in local variables to identify used variables.
+         Therefore, we do not remove them. *)
     BaseStack.filter
-      (fun var _ -> Var.appears_in_source_code var && not (is_local var astate))
+      (fun var _ -> Var.appears_in_source_code var)
       (astate.post :> BaseDomain.t).stack
   in
   BaseStack.fold restore_pre_var (astate.pre :> BaseDomain.t).stack
@@ -1285,8 +1376,6 @@ let summary_with_need_specialization summary = {summary with need_specialization
 let summary_with_cost cost summary = {summary with cost}
 
 let summary_with_path_lines path_lines summary = {summary with path_lines}
-
-let summary_with_vars_info vars_info summary = {summary with vars_info}
 
 let is_heap_allocated {post; pre} v =
   BaseMemory.is_allocated (post :> BaseDomain.t).heap v

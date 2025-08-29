@@ -22,6 +22,8 @@ val and_eq_int :
 val and_eq_const :
   AbstractValue.t -> Const.t -> AbductiveDomain.t -> AbductiveDomain.t AccessResult.t
 
+val and_neq_null : AbstractValue.t -> AbductiveDomain.t -> AbductiveDomain.t
+
 type operand = PathCondition.operand =
   | AbstractValueOperand of AbstractValue.t
   | ConstOperand of Const.t

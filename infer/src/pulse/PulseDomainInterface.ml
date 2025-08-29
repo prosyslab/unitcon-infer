@@ -16,6 +16,7 @@ module NonDisjDomain = PulseNonDisjunctiveDomain
 module Stack = AbductiveDomain.Stack
 module Memory = AbductiveDomain.Memory
 module AddressAttributes = AbductiveDomain.AddressAttributes
+module Dependency = AbductiveDomain.Dependency
 
 (** use only if you know what you are doing or you risk break bi-abduction *)
 module BaseDomain = PulseBaseDomain
@@ -23,6 +24,7 @@ module BaseDomain = PulseBaseDomain
 module BaseStack = PulseBaseStack
 module BaseMemory = PulseBaseMemory
 module BaseAddressAttributes = PulseBaseAddressAttributes
+module BaseDependency = PulseBaseDependency
 module Decompiler = PulseAbductiveDecompiler
 module Diagnostic = PulseDiagnostic
 module LatentIssue = PulseLatentIssue

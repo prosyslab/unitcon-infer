@@ -667,7 +667,6 @@ module PulseTransferFunctions = struct
       (astate_n : NonDisjDomain.t)
       ({InterproceduralAnalysis.tenv; proc_desc; err_log} as analysis_data) _cfg_node
       (instr : Sil.instr) : ExecutionDomain.t list * PathContext.t * NonDisjDomain.t =
-    let astate = ExecutionDomain.update_vars_info proc_desc astate instr in
     match astate with
     | AbortProgram _ | ISLLatentMemoryError _ | LatentAbortProgram _ | LatentInvalidAccess _ ->
         ([astate], path, astate_n)
@@ -688,11 +687,15 @@ module PulseTransferFunctions = struct
                 |> List.map ~f:(fun result ->
                        let* astate, rhs_addr_hist = result in
                        and_is_int_if_integer_type typ (fst rhs_addr_hist) astate
-                       >>| PulseOperations.write_id lhs_id rhs_addr_hist )
+                       >>| PulseOperations.write_id lhs_id rhs_addr_hist
+                       >>| PulseOperations.add_load_dependency lhs_id rhs_exp
+                       >>| PulseOperations.add_potential_pc rhs_exp )
               else
                 [ (let* astate, rhs_addr_hist = PulseOperations.eval_deref path loc rhs_exp astate in
                    and_is_int_if_integer_type typ (fst rhs_addr_hist) astate
-                   >>| PulseOperations.write_id lhs_id rhs_addr_hist ) ]
+                   >>| PulseOperations.write_id lhs_id rhs_addr_hist
+                   >>| PulseOperations.add_load_dependency lhs_id rhs_exp
+                   >>| PulseOperations.add_potential_pc rhs_exp ) ]
             in
             PulseReport.report_results tenv proc_desc err_log loc results
           in
@@ -778,9 +781,15 @@ module PulseTransferFunctions = struct
             | Lvar pvar when Pvar.is_return pvar ->
                 List.map astates ~f:(fun result ->
                     let* astate = result in
-                    PulseOperations.check_address_escape loc proc_desc rhs_addr rhs_history astate )
+                    PulseOperations.check_address_escape loc proc_desc rhs_addr rhs_history astate
+                    >>| PulseOperations.add_store_dependency lhs_exp rhs_exp
+                    >>| PulseOperations.add_return_dependency pvar
+                    >>| PulseOperations.add_potential_pc rhs_exp )
             | _ ->
-                astates
+                List.map astates ~f:(fun result ->
+                    let+ astate = result in
+                    PulseOperations.add_store_dependency lhs_exp rhs_exp astate
+                    |> PulseOperations.add_potential_pc rhs_exp )
           in
           let astate_n = NonDisjDomain.set_captured_variables rhs_exp astate_n in
           (PulseReport.report_results tenv proc_desc err_log loc result, path, astate_n)

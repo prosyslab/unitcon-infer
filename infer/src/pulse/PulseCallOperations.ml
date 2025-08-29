@@ -151,6 +151,14 @@ let unknown_call ({PathContext.timestamp} as path) call_loc (reason : CallEvent.
   |> add_skipped_proc
 
 
+let subst_return_dep subst one_dep =
+  AbstractValue.Map.fold
+    (fun key (value, _) acc ->
+      L.d_printfln "apply_callee subst (%a) -> (%a)" AbstractValue.pp key AbstractValue.pp value ;
+      BaseDependency.Set.subst_var (key, value) acc )
+    subst one_dep
+
+
 let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee_pname call_loc
     callee_exec_state ~ret ~captured_formals ~captured_actuals ~formals ~actuals astate
     caller_astate =
@@ -170,6 +178,18 @@ let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee
       PulseInterproc.apply_prepost path ~is_isl_error_prepost callee_pname call_loc ~callee_prepost
         ~captured_formals ~captured_actuals ~formals ~actuals astate
     in
+    let return_var = Var.of_pvar (Pvar.get_ret_pvar callee_pname) in
+    let return_dep =
+      match
+        BaseStack.find_opt return_var (callee_prepost.AbductiveDomain.post :> BaseDomain.t).stack
+      with
+      | Some (addr, _) ->
+          BaseDependency.find_opt
+            (BaseDependency.of_abstract_value addr)
+            (callee_prepost.AbductiveDomain.post :> BaseDomain.t).dependency
+      | None ->
+          None
+    in
     let sat_unsat =
       let* post, return_val_opt, subst = sat_unsat in
       let post =
@@ -185,6 +205,14 @@ let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee
                     ; in_call= ValueHistory.epoch
                     ; timestamp } ) )
               post
+      in
+      let post =
+        match return_dep with
+        | Some dep ->
+            let dep = subst_return_dep subst dep in
+            PulseOperations.add_def_id (fst ret) dep post
+        | None ->
+            post
       in
       f subst post
     in

@@ -66,6 +66,8 @@ type operand = PulseFormula.operand =
 
 val and_equal : operand -> operand -> t -> t * new_eqs
 
+val and_neq_null : AbstractValue.t -> t -> t * new_eqs
+
 val eval_binop : AbstractValue.t -> Binop.t -> operand -> operand -> t -> t * new_eqs
 
 val eval_binop_av :

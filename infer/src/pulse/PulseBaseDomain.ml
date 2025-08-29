@@ -11,10 +11,11 @@ open PulseBasicInterface
 module Memory = PulseBaseMemory
 module Stack = PulseBaseStack
 module AddressAttributes = PulseBaseAddressAttributes
+module Dependency = PulseBaseDependency
 
 (* {2 Abstract domain description } *)
 
-type t = {heap: Memory.t; stack: Stack.t; attrs: AddressAttributes.t}
+type t = {heap: Memory.t; stack: Stack.t; dependency: Dependency.t; attrs: AddressAttributes.t}
 [@@deriving compare, equal, yojson_of]
 
 let empty =
@@ -23,6 +24,7 @@ let empty =
       (* TODO: we could record that 0 is an invalid address at this point but this makes the
          analysis go a bit overboard with the Nullptr reports. *)
   ; stack= Stack.empty
+  ; dependency= Dependency.empty
   ; attrs= AddressAttributes.empty }
 
 
@@ -180,12 +182,15 @@ module GraphComparison = struct
     match isograph_map ~lhs ~rhs mapping with IsomorphicUpTo _ -> true | NotIsomorphic -> false
 end
 
-let pp fmt {heap; stack; attrs} =
-  F.fprintf fmt "{@[<v1> roots=@[<hv>%a@];@;mem  =@[<hv>%a@];@;attrs=@[<hv>%a@];@]}" Stack.pp stack
-    Memory.pp heap AddressAttributes.pp attrs
+let pp fmt {heap; stack; dependency; attrs} =
+  F.fprintf fmt
+    "{@[<v1> roots=@[<hv>%a@];@;mem  =@[<hv>%a@];@;dependency=@[<hv>%a@];@;attrs=@[<hv>%a@];@]}"
+    Stack.pp stack Memory.pp heap Dependency.pp dependency AddressAttributes.pp attrs
 
 
-let pp_summary fmt {heap; stack} = F.fprintf fmt "[%a];[%a]" Stack.pp stack Memory.pp heap
+let pp_summary fmt {heap; stack; dependency} =
+  F.fprintf fmt "[%a];[%a];[%a]" Stack.pp stack Memory.pp heap Dependency.pp dependency
+
 
 module GraphVisit : sig
   val fold :
@@ -304,10 +309,14 @@ let reachable_addresses_from ?(already_visited = AbstractValue.Set.empty) addres
   |> fst
 
 
-let subst_var ~for_summary subst ({heap; stack; attrs} as astate) =
+let subst_var ~for_summary subst ({heap; stack; dependency; attrs} as astate) =
   let open SatUnsat.Import in
   let* stack' = Stack.subst_var subst stack in
-  let+ heap' = Memory.subst_var subst heap in
+  let* heap' = Memory.subst_var subst heap in
+  let+ dependency' = Dependency.subst_var subst dependency in
   let attrs' = AddressAttributes.subst_var ~for_summary subst attrs in
-  if phys_equal heap heap' && phys_equal stack stack' && phys_equal attrs attrs' then astate
-  else {heap= heap'; stack= stack'; attrs= attrs'}
+  if
+    phys_equal heap heap' && phys_equal stack stack' && phys_equal dependency dependency'
+    && phys_equal attrs attrs'
+  then astate
+  else {heap= heap'; stack= stack'; dependency= dependency'; attrs= attrs'}

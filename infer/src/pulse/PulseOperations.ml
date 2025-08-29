@@ -423,6 +423,11 @@ let realloc_pvar tenv ({PathContext.timestamp} as path) pvar typ location astate
   AbductiveDomain.set_uninitialized tenv path (`LocalDecl (pvar, Some addr)) typ location astate
 
 
+let add_def_id id use_set astate =
+  let symbol = Dependency.of_var (Var.of_id id) in
+  Dependency.add symbol use_set astate
+
+
 let write_id id new_addr_loc astate = Stack.add (Var.of_id id) new_addr_loc astate
 
 let read_id id astate = Stack.find_opt (Var.of_id id) astate
@@ -684,7 +689,7 @@ let get_dynamic_type_unreachable_values vars astate =
         if AbstractValue.equal addr var_addr then Some var else var_opt )
       astate None
   in
-  let astate' = Stack.remove_vars vars astate in
+  let astate' = Stack.remove_vars vars astate |> Dependency.remove_vars vars in
   let unreachable_addrs = AbductiveDomain.get_unreachable_attributes astate' in
   let res =
     List.fold unreachable_addrs ~init:[] ~f:(fun res addr ->
@@ -794,7 +799,7 @@ let remove_vars vars location astate =
         | _ ->
             astate )
   in
-  Stack.remove_vars vars astate
+  Stack.remove_vars vars astate |> Dependency.remove_vars vars
 
 
 let get_var_captured_actuals path location ~captured_formals ~actual_closure astate =
@@ -827,6 +832,254 @@ let get_closure_captured_actuals path location ~captured_actuals astate =
      captured_actuals and therefore not break the element-wise correspondence
      between the captured_actuals and captured_formals in the caller *)
   (astate, List.rev captured_actuals)
+
+
+(* For Dependency Analysis *)
+let extend_var_dep var astate =
+  match Stack.find_opt var astate with
+  | Some (addr, _) ->
+      let sym = Dependency.of_abstract_value addr in
+      let dep = Dependency.find sym astate in
+      Some (Dependency.add_elem sym dep)
+  | None ->
+      None
+
+
+let add_var_dep var dep astate =
+  match Stack.find_opt var astate with
+  | Some (addr, _) ->
+      let sym = Dependency.of_abstract_value addr in
+      Some (Dependency.add_elem sym dep)
+  | None ->
+      None
+
+
+let add_dep_to_var dep var astate =
+  match Stack.find_opt var astate with
+  | Some (addr, _) ->
+      let sym = Dependency.of_abstract_value addr in
+      Dependency.add sym dep astate
+  | None ->
+      astate
+
+
+let collect_all_addresses ~f vars astate =
+  Sequence.fold ~init:[]
+    ~f:(fun acc v -> match Stack.find_opt v astate with Some (addr, _) -> f addr acc | None -> acc)
+    vars
+
+
+let collect_dep_of_exps exp_list astate =
+  Sequence.fold ~init:Dependency.empty_dep
+    ~f:(fun acc v ->
+      match Dependency.find_opt (Dependency.of_var v) astate with
+      | Some dep ->
+          Dependency.union_one_dep dep acc
+      | None ->
+          acc )
+    exp_list
+
+
+let add_load_dependency lhs rhs astate =
+  let lhs_sym = Dependency.of_var (Var.of_id lhs) in
+  match (rhs : Exp.t) with
+  | Var id -> (
+    match extend_var_dep (Var.of_id id) astate with
+    | Some dep ->
+        Dependency.add lhs_sym dep astate
+    | None ->
+        astate )
+  | UnOp (_, e, _) | Cast (_, e) ->
+      Sequence.fold ~init:astate
+        ~f:(fun astate v ->
+          match extend_var_dep v astate with
+          | Some dep ->
+              Dependency.combine lhs_sym dep astate
+          | None ->
+              astate )
+        (Var.get_all_vars_in_exp e)
+  | BinOp (_, e1, e2) ->
+      let vs1 = Var.get_all_vars_in_exp e1 in
+      let vs2 = Var.get_all_vars_in_exp e2 in
+      Sequence.fold ~init:astate
+        ~f:(fun astate v ->
+          match extend_var_dep v astate with
+          | Some dep ->
+              Dependency.combine lhs_sym dep astate
+          | None ->
+              astate )
+        (Sequence.append vs1 vs2)
+  | Exn _ | Closure _ | Const _ | Sizeof _ ->
+      astate
+  | Lvar pv -> (
+    match extend_var_dep (Var.of_pvar pv) astate with
+    | Some dep ->
+        Dependency.add lhs_sym dep astate
+    | None ->
+        astate )
+  | Lfield (e, _, _) ->
+      Sequence.fold ~init:astate
+        ~f:(fun astate v ->
+          let sym = Dependency.of_var v in
+          let astate', deps = Dependency.eval sym astate in
+          match add_var_dep v deps astate with
+          | Some dep ->
+              Dependency.combine lhs_sym dep astate'
+          | None ->
+              astate' )
+        (Var.get_all_vars_in_exp e)
+  | Lindex (e1, e2) ->
+      (* e1[e2] *)
+      let astate' =
+        Sequence.fold ~init:astate
+          ~f:(fun astate v ->
+            let sym = Dependency.of_var v in
+            let astate', deps = Dependency.eval sym astate in
+            match add_var_dep v deps astate with
+            | Some dep ->
+                Dependency.combine lhs_sym dep astate'
+            | None ->
+                astate' )
+          (Var.get_all_vars_in_exp e1)
+      in
+      Sequence.fold ~init:astate'
+        ~f:(fun astate v ->
+          let sym = Dependency.of_var v in
+          let astate', deps = Dependency.eval sym astate in
+          Dependency.combine lhs_sym deps astate' )
+        (Var.get_all_vars_in_exp e2)
+
+
+let collect_use_symbols rhs astate =
+  match (rhs : Exp.t) with
+  | Var id ->
+      Dependency.find (Dependency.of_var (Var.of_id id)) astate
+  | UnOp (_, e, _) | Cast (_, e) | Lfield (e, _, _) ->
+      collect_dep_of_exps (Var.get_all_vars_in_exp e) astate
+  | BinOp (_, e1, e2) | Lindex (e1, e2) ->
+      let v1 = Var.get_all_vars_in_exp e1 in
+      let v2 = Var.get_all_vars_in_exp e2 in
+      collect_dep_of_exps (Sequence.append v1 v2) astate
+  | Exn _ | Closure _ | Const _ | Sizeof _ ->
+      Dependency.empty_dep
+  | Lvar pv ->
+      Dependency.find (Dependency.of_var (Var.of_pvar pv)) astate
+
+
+let add_store_dependency lhs rhs astate =
+  let use_symbols = collect_use_symbols rhs astate in
+  match (lhs : Exp.t) with
+  | Var id ->
+      L.d_printfln "Error: Var of add_store_dependency should not be reachable." ;
+      add_dep_to_var use_symbols (Var.of_id id) astate
+  | UnOp (_, e, _) | Cast (_, e) ->
+      L.d_printfln "Error: UnOp & Cast of add_store_dependency should not be reachable." ;
+      Sequence.fold ~init:astate
+        ~f:(fun astate v -> add_dep_to_var use_symbols v astate)
+        (Var.get_all_vars_in_exp e)
+  | BinOp (_, e1, e2) ->
+      L.d_printfln "Error: BinOp of add_store_dependency should not be reachable." ;
+      let v1 = Var.get_all_vars_in_exp e1 in
+      let v2 = Var.get_all_vars_in_exp e2 in
+      Sequence.fold ~init:astate
+        ~f:(fun astate v -> add_dep_to_var use_symbols v astate)
+        (Sequence.append v1 v2)
+  | Exn _ | Closure _ | Const _ | Sizeof _ ->
+      astate
+  | Lvar pv ->
+      add_dep_to_var use_symbols (Var.of_pvar pv) astate
+  | Lfield (e, field, _) ->
+      Sequence.fold ~init:astate
+        ~f:(fun astate v ->
+          match Stack.find_opt v astate with
+          | Some (addr, _) -> (
+            match Memory.find_edge_opt addr (HilExp.Access.FieldAccess field) astate with
+            | Some (access_addr, _) ->
+                let astate', deps = Dependency.eval (Dependency.of_var v) astate in
+                let deps =
+                  Dependency.union_one_dep deps use_symbols
+                  |> Dependency.add_elem (Dependency.of_abstract_value addr)
+                in
+                Dependency.add (Dependency.of_abstract_value access_addr) deps astate'
+            | None ->
+                astate )
+          | None ->
+              astate )
+        (Var.get_all_vars_in_exp e)
+  | Lindex (e1, e2) ->
+      (* e1[e2] *)
+      let index =
+        collect_all_addresses ~f:(fun addr acc -> addr :: acc) (Var.get_all_vars_in_exp e2) astate
+      in
+      Sequence.fold ~init:astate
+        ~f:(fun astate v ->
+          List.fold ~init:astate
+            ~f:(fun astate index ->
+              match Stack.find_opt v astate with
+              | Some (addr, _) -> (
+                match
+                  Memory.find_edge_opt addr (HilExp.Access.ArrayAccess (StdTyp.void, index)) astate
+                with
+                | Some (access_addr, _) ->
+                    let astate', deps_arr = Dependency.eval (Dependency.of_var v) astate in
+                    let astate', deps_index =
+                      Dependency.eval (Dependency.of_abstract_value index) astate'
+                    in
+                    let deps =
+                      Dependency.union_one_dep deps_arr use_symbols
+                      |> Dependency.union_one_dep deps_index
+                      |> Dependency.add_elem (Dependency.of_abstract_value addr)
+                    in
+                    Dependency.add (Dependency.of_abstract_value access_addr) deps astate'
+                | None ->
+                    astate )
+              | None ->
+                  astate )
+            index )
+        (Var.get_all_vars_in_exp e1)
+
+
+let rec collect_nested_address_dep addr visited astate =
+  if AbstractValue.Set.mem addr visited then Dependency.empty_dep
+  else
+    let visited = AbstractValue.Set.add addr visited in
+    match Memory.find_opt addr astate with
+    | Some edges ->
+        Memory.Edges.fold ~init:Dependency.empty_dep
+          ~f:(fun acc (_, (access_addr, _)) ->
+            let dep = Dependency.find (Dependency.of_abstract_value access_addr) astate in
+            let dep =
+              collect_nested_address_dep access_addr visited astate |> Dependency.union_one_dep dep
+            in
+            Dependency.union_one_dep dep acc )
+          edges
+    | None ->
+        Dependency.empty_dep
+
+
+let add_return_dependency pvar astate =
+  match Stack.find_opt (Var.of_pvar pvar) astate with
+  | Some (addr, _) ->
+      let empty_visited = AbstractValue.Set.empty in
+      let dep = collect_nested_address_dep addr empty_visited astate in
+      Dependency.combine (Dependency.of_abstract_value addr) dep astate
+  | None ->
+      astate
+
+
+let add_potential_pc rhs astate =
+  match (rhs : Exp.t) with
+  | Var _ | UnOp _ | BinOp _ | Exn _ | Closure _ | Const _ | Cast _ | Lvar _ | Sizeof _ ->
+      astate
+  | Lfield (e, _, _) | Lindex (e, _) ->
+      Sequence.fold ~init:astate
+        ~f:(fun astate v ->
+          match Stack.find_opt v astate with
+          | Some (value, _) ->
+              PulseArithmetic.and_neq_null value astate
+          | None ->
+              astate )
+        (Var.get_all_vars_in_exp e)
 
 
 type call_kind =

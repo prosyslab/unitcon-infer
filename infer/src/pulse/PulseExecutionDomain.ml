@@ -174,55 +174,6 @@ let add_path_lines line = function
       ISLLatentMemoryError (AbductiveDomain.summary_with_path_lines path_lines astate)
 
 
-let get_pvar_fp proc_desc =
-  Procdesc.get_pvar_formals proc_desc
-  |> List.fold_left ~init:[] ~f:(fun acc (pvar, _) -> Var.of_pvar pvar :: acc)
-
-
-let get_vars_info proc_desc astate instr =
-  match instr with
-  | Sil.Load {loc; _} | Sil.Store {loc; _} | Sil.Call (_, _, _, loc, _) ->
-      let astate = get_astate astate in
-      let fp = PulseVarsInfo.get_formal_params astate.vars_info in
-      let formal_params = if List.is_empty fp then get_pvar_fp proc_desc else fp in
-      (* If it is the same location as the previous instruction,
-         then it accumulates used variables. *)
-      let used_at_curr = PulseVarsInfo.get_used_at_curr loc astate.vars_info in
-      let vars_info = PulseVarsInfo.{astate.vars_info with used_at_curr} in
-      let used_at_curr, graph = PulseVarsInfo.get_usage_relation instr vars_info in
-      let related_args = PulseVarsInfo.find_relation formal_params used_at_curr graph in
-      let used_args = PulseVarsInfo.find_usage formal_params graph in
-      PulseVarsInfo.{formal_params; curr_loc= loc; graph; used_at_curr; related_args; used_args}
-  | _ ->
-      (get_astate astate).vars_info
-
-
-let update_vars_info proc_desc astate instr =
-  let vars_info = get_vars_info proc_desc astate instr in
-  match astate with
-  | ContinueProgram astate ->
-      ContinueProgram (AbductiveDomain.set_vars_info vars_info astate)
-  | ExceptionRaised astate ->
-      ExceptionRaised (AbductiveDomain.set_vars_info vars_info astate)
-  | ExitProgram astate ->
-      let astate = (astate :> AbductiveDomain.t) in
-      ExitProgram (AbductiveDomain.summary_with_vars_info vars_info astate)
-  | AbortProgram astate ->
-      let astate = (astate :> AbductiveDomain.t) in
-      AbortProgram (AbductiveDomain.summary_with_vars_info vars_info astate)
-  | LatentAbortProgram {astate; latent_issue} ->
-      let astate = (astate :> AbductiveDomain.t) in
-      let astate = AbductiveDomain.summary_with_vars_info vars_info astate in
-      LatentAbortProgram {astate; latent_issue}
-  | LatentInvalidAccess {astate; address; must_be_valid; calling_context} ->
-      let astate = (astate :> AbductiveDomain.t) in
-      let astate = AbductiveDomain.summary_with_vars_info vars_info astate in
-      LatentInvalidAccess {astate; address; must_be_valid; calling_context}
-  | ISLLatentMemoryError astate ->
-      let astate = (astate :> AbductiveDomain.t) in
-      ISLLatentMemoryError (AbductiveDomain.summary_with_vars_info vars_info astate)
-
-
 let is_unsat_cheap exec_state = PathCondition.is_unsat_cheap (get_astate exec_state).path_condition
 
 type summary = AbductiveDomain.summary base_t [@@deriving compare, equal, yojson_of]

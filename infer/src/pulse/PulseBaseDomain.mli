@@ -10,7 +10,11 @@ open PulseBasicInterface
 module Memory = PulseBaseMemory
 module F = Format
 
-type t = {heap: PulseBaseMemory.t; stack: PulseBaseStack.t; attrs: PulseBaseAddressAttributes.t}
+type t =
+  { heap: PulseBaseMemory.t
+  ; stack: PulseBaseStack.t
+  ; dependency: PulseBaseDependency.t
+  ; attrs: PulseBaseAddressAttributes.t }
 [@@deriving compare, equal, yojson_of]
 
 type cell = PulseBaseMemory.Edges.t * Attributes.t

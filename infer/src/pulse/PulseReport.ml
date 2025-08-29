@@ -21,6 +21,44 @@ let es_json json =
   Out_channel.close oc
 
 
+let vars_used_at_instr instr acc =
+  match (instr : Sil.instr) with
+  | Load {e: Exp.t; _} ->
+      let vs = Var.get_all_vars_in_exp e in
+      Sequence.fold ~init:acc ~f:(fun acc v -> v :: acc) vs
+  | Store {e2: Exp.t; _} ->
+      let vs2 = Var.get_all_vars_in_exp e2 in
+      Sequence.fold ~init:acc ~f:(fun acc v -> v :: acc) vs2
+  | _ ->
+      acc
+
+
+let vars_used_at_node node acc =
+  let instrs = Procdesc.Node.get_instrs node in
+  Instrs.fold ~init:acc ~f:(fun acc instr -> vars_used_at_instr instr acc) instrs
+
+
+let vars_used_at_location location proc_desc =
+  let nodes = Procdesc.get_nodes proc_desc in
+  List.fold_left ~init:[]
+    ~f:(fun acc node ->
+      if Location.equal location (Procdesc.Node.get_loc node) then vars_used_at_node node acc
+      else acc )
+    nodes
+
+
+(* return the address list of used variables at a location *)
+let vars_of_location location proc_desc astate =
+  List.fold_left ~init:[]
+    ~f:(fun acc v ->
+      match AbductiveDomain.Stack.find_opt v astate with
+      | Some (value, _) ->
+          value :: acc
+      | None ->
+          acc )
+    (vars_used_at_location location proc_desc)
+
+
 let report ~is_suppressed ~latent proc_desc err_log diagnostic =
   let open Diagnostic in
   if is_suppressed && (not Config.pulse_report_issues_for_tests) && not Config.show_latent then ()
@@ -194,12 +232,17 @@ let report_summary_error tenv proc_desc err_log _location (access_error : Access
          let start_line = start_loc.line in
          let file = start_loc.file |> SourceFile.to_string in
          let last_line = (Procdesc.get_exit_node proc_desc |> Procdesc.Node.get_loc).line in
+         let err_vars = vars_of_location _location proc_desc (astate :> AbductiveDomain.t) in
+         let err_vars_json =
+           List.map ~f:(fun v -> `String (Format.asprintf "%a" AbstractValue.pp v)) err_vars
+         in
          es_json
            (`Assoc
              ( ("Procname", `String pname)
              :: ("Filename", `String file)
              :: ("StartLine", `Int start_line)
              :: ("LastLine", `Int last_line)
+             :: ("ErrorVars", `List err_vars_json)
              :: cond ) ) ) ;
         report ~latent:true ~is_suppressed proc_desc err_log
           (AccessToInvalidAddress
@@ -230,12 +273,17 @@ let report_summary_error tenv proc_desc err_log _location (access_error : Access
        let start_line = start_loc.line in
        let file = start_loc.file |> SourceFile.to_string in
        let last_line = (Procdesc.get_exit_node proc_desc |> Procdesc.Node.get_loc).line in
+       let err_vars = vars_of_location _location proc_desc (astate :> AbductiveDomain.t) in
+       let err_vars_json =
+         List.map ~f:(fun v -> `String (Format.asprintf "%a" AbstractValue.pp v)) err_vars
+       in
        es_json
          (`Assoc
            ( ("Procname", `String pname)
            :: ("Filename", `String file)
            :: ("StartLine", `Int start_line)
            :: ("LastLine", `Int last_line)
+           :: ("ErrorVars", `List err_vars_json)
            :: cond ) ) ) ;
       match LatentIssue.should_report astate diagnostic with
       | `ReportNow ->
