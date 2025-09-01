@@ -18,6 +18,7 @@ val call :
   -> callee_data:(Procdesc.t * PulseSummary.t) option
   -> Location.t
   -> Procname.t
+  -> (Exp.t * Typ.t) list
   -> ret:Ident.t * Typ.t
   -> actuals:((AbstractValue.t * ValueHistory.t) * Typ.t) list
   -> formals_opt:(Pvar.t * Typ.t) list option

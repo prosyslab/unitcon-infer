@@ -1067,6 +1067,30 @@ let add_return_dependency pvar astate =
       astate
 
 
+(* For functions without a specification,
+   return dependencies are computed in the same way as composition load instruction dependencies.
+   e.g., Instruction: n$3 = no_spec_function(n$1, n$2)
+         Address: n$1 -> v2, n$2 -> v3
+         DependencyMap: n$3 -> {v2, v3} ∪ m(n$1) ∪ m(n$2)
+*)
+let add_model_or_unknown_call actuals func_args ret astate =
+  let dep =
+    List.fold_left ~init:Dependency.empty_dep
+      ~f:(fun dep v ->
+        let symbol = Dependency.of_abstract_value v in
+        Dependency.add_elem symbol dep )
+      func_args
+  in
+  let dep =
+    List.fold_left ~init:dep
+      ~f:(fun acc (exp, _) ->
+        let dep' = collect_dep_of_exps (Var.get_all_vars_in_exp exp) astate in
+        Dependency.union_one_dep dep' acc )
+      actuals
+  in
+  add_def_id (fst ret) dep astate
+
+
 let add_potential_pc rhs astate =
   match (rhs : Exp.t) with
   | Var _ | UnOp _ | BinOp _ | Exn _ | Closure _ | Const _ | Cast _ | Lvar _ | Sizeof _ ->

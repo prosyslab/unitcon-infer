@@ -128,7 +128,7 @@ module PulseTransferFunctions = struct
 
   let interprocedural_call
       ({InterproceduralAnalysis.analyze_dependency; tenv; proc_desc} as analysis_data) path ret
-      callee_pname call_exp func_args call_loc (flags : CallFlags.t) astate =
+      callee_pname call_exp caller_actuals func_args call_loc (flags : CallFlags.t) astate =
     let actuals =
       List.map func_args ~f:(fun ProcnameDispatcher.Call.FuncArg.{arg_payload; typ} ->
           (arg_payload, typ) )
@@ -170,7 +170,7 @@ module PulseTransferFunctions = struct
                     let callee_data = analyze_dependency callee_pname in
                     let call_res =
                       PulseCallOperations.call tenv path ~caller_proc_desc:proc_desc ~callee_data
-                        call_loc callee_pname ~ret ~actuals ~formals_opt
+                        call_loc callee_pname caller_actuals ~ret ~actuals ~formals_opt
                         ~call_kind:(call_kind_of call_exp) astate
                     in
                     (callee_pname, call_exp, call_res)
@@ -193,7 +193,8 @@ module PulseTransferFunctions = struct
                 let formals_opt = get_pvar_formals callee_pname in
                 let callee_data = analyze_dependency callee_pname in
                 PulseCallOperations.call tenv path ~caller_proc_desc:proc_desc ~callee_data call_loc
-                  callee_pname ~ret ~actuals ~formals_opt ~call_kind:(call_kind_of call_exp) astate
+                  callee_pname caller_actuals ~ret ~actuals ~formals_opt
+                  ~call_kind:(call_kind_of call_exp) astate
                 |> maybe_call_with_alias callee_pname call_exp
             | None ->
                 L.d_printfln "Failed to closure-specialize %a@\n" Exp.pp call_exp ;
@@ -203,7 +204,7 @@ module PulseTransferFunctions = struct
         let res, _contradiction =
           let callee_pname, call_exp, call_res =
             PulseCallOperations.call tenv path ~caller_proc_desc:proc_desc ~callee_data call_loc
-              callee_pname ~ret ~actuals ~formals_opt ~call_kind astate
+              callee_pname caller_actuals ~ret ~actuals ~formals_opt ~call_kind astate
             |> maybe_call_with_alias callee_pname call_exp
           in
           let _, _, call_res = maybe_call_specialization callee_pname call_exp call_res in
@@ -354,13 +355,12 @@ module PulseTransferFunctions = struct
       match model with
       | Some (model, callee_procname) ->
           L.d_printfln "Found model for call@\n" ;
-          let astate =
-            let arg_values =
-              List.map func_args ~f:(fun {ProcnameDispatcher.Call.FuncArg.arg_payload= value, _} ->
-                  value )
-            in
-            PulseCallOperations.conservatively_initialize_args arg_values astate
+          let arg_values =
+            List.map func_args ~f:(fun {ProcnameDispatcher.Call.FuncArg.arg_payload= value, _} ->
+                value )
           in
+          let astate = PulseOperations.add_model_or_unknown_call actuals arg_values ret astate in
+          let astate = PulseCallOperations.conservatively_initialize_args arg_values astate in
           ( model
               { analysis_data
               ; dispatch_call_eval_args
@@ -373,8 +373,8 @@ module PulseTransferFunctions = struct
       | None ->
           PerfEvent.(log (fun logger -> log_begin_event logger ~name:"pulse interproc call" ())) ;
           let r =
-            interprocedural_call analysis_data path ret callee_pname call_exp func_args call_loc
-              flags astate
+            interprocedural_call analysis_data path ret callee_pname call_exp actuals func_args
+              call_loc flags astate
           in
           PerfEvent.(log (fun logger -> log_end_event logger ())) ;
           r

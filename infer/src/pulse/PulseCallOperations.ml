@@ -104,10 +104,13 @@ let unknown_call ({PathContext.timestamp} as path) call_loc (reason : CallEvent.
     let* astate, f =
       match reason with
       | Call _ | Model _ ->
+          L.debug Analysis Verbose "NotFound callee summary --> Call or Model" ;
           Ok (astate, None)
       | SkippedKnownCall proc_name ->
+          L.debug Analysis Verbose "NotFound callee summary --> SkippedKnownCall" ;
           Ok (astate, Some (PulseFormula.Procname proc_name))
       | SkippedUnknownCall e ->
+          L.debug Analysis Verbose "NotFound callee summary --> SkippedUnknownCall" ;
           let+ astate, (v, _) = PulseOperations.eval path Read call_loc e astate in
           (astate, Some (PulseFormula.Unknown v))
     in
@@ -214,6 +217,9 @@ let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee
         | None ->
             post
       in
+      L.debug Analysis Verbose "Call! Stack: %a\nHeap: %a\nDependency: %a\n" BaseStack.pp
+        (AbductiveDomain.get_post post).stack BaseMemory.pp (AbductiveDomain.get_post post).heap
+        Dependency.pp (AbductiveDomain.get_post post).dependency ;
       f subst post
     in
     (sat_unsat, contradiction)
@@ -429,7 +435,7 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
 
 
 let call tenv path ~caller_proc_desc ~(callee_data : (Procdesc.t * PulseSummary.t) option) call_loc
-    callee_pname ~ret ~actuals ~formals_opt ~call_kind (astate : AbductiveDomain.t) =
+    callee_pname caller_actuals ~ret ~actuals ~formals_opt ~call_kind (astate : AbductiveDomain.t) =
   (* a special case for objc nil messaging *)
   let unknown_objc_nil_messaging astate_unknown proc_name proc_attrs =
     let result_unknown =
@@ -449,6 +455,7 @@ let call tenv path ~caller_proc_desc ~(callee_data : (Procdesc.t * PulseSummary.
   in
   match callee_data with
   | Some (callee_proc_desc, exec_states) ->
+      L.debug Analysis Verbose "Found callee summary" ;
       call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_kind
         (Procdesc.get_attributes callee_proc_desc)
         (exec_states :> ExecutionDomain.t list)
@@ -457,6 +464,13 @@ let call tenv path ~caller_proc_desc ~(callee_data : (Procdesc.t * PulseSummary.
       (* no spec found for some reason (unknown function, ...) *)
       L.d_printfln "No spec found for %a@\n" Procname.pp callee_pname ;
       let arg_values = List.map actuals ~f:(fun ((value, _), _) -> value) in
+      (* For functions without a specification,
+         return dependencies are computed in the same way as composition load instruction dependencies.
+         e.g., Instruction: n$3 = no_spec_function(n$1, n$2)
+               Address: n$1 -> v2, n$2 -> v3
+               DependencyMap: n$3 -> (v2, v3, m(n$1), m(n$2))
+      *)
+      let astate = PulseOperations.add_model_or_unknown_call caller_actuals arg_values ret astate in
       let<*> astate_unknown =
         conservatively_initialize_args arg_values astate
         |> unknown_call path call_loc (SkippedKnownCall callee_pname) (Some callee_pname) ~ret

@@ -345,6 +345,9 @@ val add_store_dependency : Exp.t -> Exp.t -> t -> t
 
 val add_return_dependency : Pvar.t -> t -> t
 
+val add_model_or_unknown_call :
+  (Exp.t * Typ.t) list -> AbstractValue.t list -> Ident.t * Typ.t -> t -> t
+
 val add_potential_pc : Exp.t -> t -> t
 
 type call_kind =

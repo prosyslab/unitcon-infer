@@ -37,7 +37,7 @@ let call args : model =
       let call_kind = `Closure c.captured_vars in
       let r, _contradiction =
         PulseCallOperations.call tenv path ~caller_proc_desc:proc_desc ~callee_data location c.name
-          ~ret ~actuals ~formals_opt ~call_kind astate
+          [] ~ret ~actuals ~formals_opt ~call_kind astate
       in
       PerfEvent.(log (fun logger -> log_end_event logger ())) ;
       r
