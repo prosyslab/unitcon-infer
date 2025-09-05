@@ -11,7 +11,9 @@ module L = Logging
 
 type exec_node_schedule_result = ReachedFixPoint | DidNotReachFixPoint
 
-let target_method = ref ""
+type t_method = {filename: string; start_line: int; end_line: int; method_name: string}
+
+let target_method = ref {filename= ""; start_line= -1; end_line= -1; method_name= ""}
 
 module VisitCount : sig
   type t = private int
@@ -456,7 +458,7 @@ struct
 
   let transform_on_exceptional_edge x =
     let l, nd = filter_exceptional x in
-    (List.map l ~f:(fun d -> T.DisjDomain.exceptional_to_normal d), nd)
+    (List.map ~f:T.DisjDomain.exceptional_to_normal l, nd)
 
 
   let is_early_return_node node =
@@ -471,10 +473,21 @@ struct
     || Procdesc.Node.equal_nodekind kind (Procdesc.Node.Stmt_node ThrowNPE)
 
 
-  let is_target_proc node =
+  let is_target_proc_from_node node =
     let loc = Procdesc.Node.get_loc node in
     String.equal Config.target_file_name (SourceFile.to_rel_path loc.Location.file)
-    && String.equal !target_method (Procdesc.Node.get_proc_name node |> Procname.to_string)
+    && String.equal !target_method.method_name
+         (Procdesc.Node.get_proc_name node |> Procname.to_string)
+
+
+  let is_target_proc_from_instr instr =
+    let loc =
+      match instr with Some instr -> Sil.location_of_instr instr | None -> Location.dummy
+    in
+    let filename = if SourceFile.is_invalid loc.file then "" else SourceFile.to_rel_path loc.file in
+    String.equal Config.target_file_name filename
+    && Int.( <= ) !target_method.start_line loc.line
+    && Int.( <= ) loc.line !target_method.end_line
 
 
   let calculate_cost node disj =
@@ -486,7 +499,7 @@ struct
       T.mk_cost_int 0 )
     else (
       L.debug Analysis Verbose "New added line.\n" ;
-      if is_target_proc node then
+      if is_target_proc_from_node node then
         let is_target_node = Int.equal Config.target_file_line loc.line in
         if is_target_node then T.mk_cost_int 0
         else if (not is_target_node) && (is_early_return_node node || is_exception_node node) then
@@ -502,11 +515,12 @@ struct
        set from [exec_node_instrs], so [remaining_disjuncts] should always be [Some _]. *)
     let limit = Option.value_exn (AnalysisState.get_remaining_disjuncts ()) in
     let pre_disjuncts = T.sort pre_disjuncts in
+    let node' = CFG.Node.underlying_node node in
     let (disjuncts, non_disj_astates), _ =
       List.foldi pre_disjuncts
         ~init:(([], []), 0)
         ~f:(fun i (((post, non_disj_astates) as post_astate), n_disjuncts) pre_disjunct ->
-          if n_disjuncts >= limit then (
+          if n_disjuncts >= limit && not (is_target_proc_from_node node') then (
             L.d_printfln "@[<v2>Reached max disjuncts limit, skipping disjunct #%d@;@]" i ;
             (post_astate, n_disjuncts) )
           else (
@@ -547,7 +561,7 @@ struct
         ~f:(fun i (((post, non_disj_astates) as post_astate), n_disjuncts) pre_disjunct ->
           let limit = disjunct_limit - n_disjuncts in
           AnalysisState.set_remaining_disjuncts limit ;
-          if limit <= 0 then (
+          if limit <= 0 && not (is_target_proc_from_instr (Instrs.last instrs)) then (
             L.d_printfln "@[Reached disjunct limit: already got %d disjuncts@]@;" limit ;
             (post_astate, n_disjuncts) )
           else if is_new_pre pre_disjunct then (
@@ -790,16 +804,21 @@ module MakeWithScheduler
 struct
   include AbstractInterpreterCommon (NodeTransferFunctions)
 
-  let set_target_method start_node exit_node =
+  let set_target_proc start_node exit_node =
     let start_loc = Node.loc start_node in
+    let end_loc = Node.loc exit_node in
     let file = SourceFile.to_string start_loc.file in
     if
       String.equal file Config.target_file_name
       && Int.( <= ) start_loc.line Config.target_file_line
-      && Int.( <= ) Config.target_file_line (Node.loc exit_node).line
+      && Int.( <= ) Config.target_file_line end_loc.line
     then
       let proc_node = Node.underlying_node start_node in
-      target_method := Procdesc.Node.get_proc_name proc_node |> Procname.to_string
+      target_method :=
+        { filename= file
+        ; start_line= start_loc.line
+        ; end_line= end_loc.line
+        ; method_name= Procdesc.Node.get_proc_name proc_node |> Procname.to_string }
 
 
   let rec exec_worklist ~pp_instr cfg analysis_data work_queue inv_map =
@@ -830,7 +849,7 @@ struct
   (** compute and return an invariant map for [cfg] *)
   let exec_cfg_internal ~pp_instr cfg analysis_data ~do_narrowing:_ ~initial =
     let start_node = CFG.start_node cfg in
-    set_target_method start_node (CFG.exit_node cfg) ;
+    set_target_proc start_node (CFG.exit_node cfg) ;
     L.debug Analysis Verbose "Procname: %a\n" Procname.pp
       (Procdesc.get_proc_name (CFG.proc_desc cfg)) ;
     let inv_map, _did_not_reach_fix_point =

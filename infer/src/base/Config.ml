@@ -2921,6 +2921,11 @@ and version =
   var
 
 
+and with_target =
+  CLOpt.mk_bool ~long:"with-target" ~default:false
+    "Specify that the program has a target when capturing for analysis."
+
+
 and workspace =
   CLOpt.mk_path_opt ~long:"workspace"
     ~in_help:InferCommand.[(Capture, manual_generic)]
@@ -3981,6 +3986,8 @@ and tv_limit = !tv_limit
 and tv_limit_filtered = !tv_limit_filtered
 
 and uninit_interproc = !uninit_interproc
+
+and with_target = !with_target
 
 and workspace = !workspace
 

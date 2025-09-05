@@ -652,16 +652,29 @@ let set_start_node pdesc node = pdesc.start_node <- node
 (** Append the locals to the list of local variables *)
 let append_locals pdesc new_locals = pdesc.attributes.locals <- pdesc.attributes.locals @ new_locals
 
+(* In the case of a forced alarm, add the current node as a predecessor of the exception node.
+   This way, the multiple exceptions are handled. *)
 let set_succs (node : Node.t) ~normal:succs_opt ~exn:exn_opt =
   let remove_pred pred_node (from_node : Node.t) =
     from_node.preds <- List.filter from_node.preds ~f:(fun pred -> not (Node.equal pred pred_node))
+  in
+  let add_exn_pred pred_node (to_node : Node.t) =
+    let pred_node_loc = Node.get_loc pred_node in
+    let already_exists =
+      List.exists to_node.preds ~f:(fun pred -> Location.equal (Node.get_loc pred) pred_node_loc)
+    in
+    if not already_exists then to_node.preds <- pred_node :: to_node.preds
   in
   let add_pred pred_node (to_node : Node.t) = to_node.preds <- pred_node :: to_node.preds in
   Option.iter succs_opt ~f:(fun new_succs ->
       List.iter node.succs ~f:(remove_pred node) ;
       List.iter new_succs ~f:(add_pred node) ;
       node.succs <- new_succs ) ;
-  Option.iter exn_opt ~f:(fun exn -> node.exn <- exn)
+  if not Config.with_target then Option.iter exn_opt ~f:(fun exn -> node.exn <- exn)
+  else
+    Option.iter exn_opt ~f:(fun exn ->
+        List.iter exn ~f:(add_exn_pred node) ;
+        node.exn <- exn )
 
 
 (** Create a new cfg node *)

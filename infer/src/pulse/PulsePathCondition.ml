@@ -164,8 +164,6 @@ let subst_find_or_new subst addr_callee =
   | None ->
       (* map restricted (≥0) values to restricted values to preserve their semantics *)
       let addr_caller = AbstractValue.mk_fresh_same_kind addr_callee in
-      L.debug Analysis Verbose "new subst %a <-> %a (fresh)" AbstractValue.pp addr_callee
-        AbstractValue.pp addr_caller ;
       L.d_printfln "new subst %a <-> %a (fresh)" AbstractValue.pp addr_callee AbstractValue.pp
         addr_caller ;
       let addr_hist_fresh = (addr_caller, ValueHistory.epoch) in
@@ -217,17 +215,13 @@ let and_bo_itvs_callee subst bo_itvs_caller bo_itvs_callee =
       (fun _v_caller bo_itv bo_itv_callee ->
         match (bo_itv, bo_itv_callee) with
         | None, None ->
-            L.debug Analysis Verbose "callee merge none, none\n" ;
             None
         | Some _, None ->
-            L.debug Analysis Verbose "callee merge Some, none\n" ;
             bo_itv
         | _, Some bo_itv_callee ->
-            L.debug Analysis Verbose "callee merge ?, Some\n" ;
             Some (and_bo_itv_callee bo_itvs_caller subst_ref bo_itv_callee) )
       bo_itvs_caller bo_itvs_callee_renamed
   in
-  L.debug Analysis Verbose "bo_itvs: %a\n" BoItvs.pp bo_itvs' ;
   (!subst_ref, bo_itvs')
 
 
@@ -236,14 +230,10 @@ let and_citv_callee citv_caller citv_callee =
   | Unsatisfiable ->
       raise Contradiction
   | Satisfiable (Some abduce_caller, Some _abduce_callee) ->
-      (* L.debug Analysis Verbose "and_citv_callee abduce some caller: %a\n" CItv.pp abduce_caller ;
-         L.debug Analysis Verbose "and_citv_callee abduce some callee: %a\n" CItv.pp abduce_callee ; *)
       abduce_caller
   | Satisfiable (Some abduce_caller, _abduce_callee) ->
-      (* L.debug Analysis Verbose "and_citv_callee abduce no callee caller: %a\n" CItv.pp abduce_caller ; *)
       abduce_caller
   | Satisfiable (None, _) ->
-      (* L.debug Analysis Verbose "and_citv_callee org caller: %a\n" CItv.pp citv_caller ; *)
       citv_caller
 
 
@@ -255,7 +245,6 @@ let and_citvs_callee subst citvs_caller citvs_callee =
         (* TODO: it could be that the same value already had a binding if several variables from the
            callee map to the same caller variable; in that case we want to "and" the intervals *)
         let citvs = CItvs.add v_caller citv citvs in
-        L.debug Analysis Verbose "current citvs: %a\n" CItvs.pp citvs ;
         (subst, citvs) )
       citvs_callee (subst, CItvs.empty)
   in
@@ -284,18 +273,15 @@ let and_callee subst phi ~callee:phi_callee =
     | subst, bo_itvs' -> (
       match and_citvs_callee subst phi.citvs phi_callee.citvs with
       | exception Contradiction ->
-          L.debug Analysis Verbose "callee contradiction\n" ;
           L.d_printfln "contradiction found by concrete intervals" ;
           (subst, false_, [])
       | subst, citvs' -> (
         match and_formula_callee subst phi.formula ~callee:phi_callee.formula with
         | Unsat ->
-            L.debug Analysis Verbose "callee unsat\n" ;
             L.d_printfln "contradiction found by formulas" ;
             (subst, false_, [])
         | Sat (subst, formula', new_eqs) ->
             (* TODO: normalize here? *)
-            L.debug Analysis Verbose "callee sat\n" ;
             L.d_printfln "conjoined formula post call: %a@\n" Formula.pp formula' ;
             (subst, {is_unsat= false; bo_itvs= bo_itvs'; citvs= citvs'; formula= formula'}, new_eqs)
         ) )

@@ -779,6 +779,8 @@ val tv_limit_filtered : int
 
 val uninit_interproc : bool
 
+val with_target : bool
+
 val workspace : string option
 
 val write_html : bool

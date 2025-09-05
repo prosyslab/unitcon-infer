@@ -76,6 +76,14 @@ module PulseTransferFunctions = struct
     IRAttributes.load pname |> Option.map ~f:ProcAttributes.get_pvar_formals
 
 
+  let is_target_proc proc_desc =
+    let start_loc = Procdesc.get_start_node proc_desc |> Procdesc.Node.get_loc in
+    let exit_loc = Procdesc.get_exit_node proc_desc |> Procdesc.Node.get_loc in
+    String.equal Config.target_file_name (SourceFile.to_rel_path start_loc.file)
+    && Int.( <= ) start_loc.line Config.target_file_line
+    && Int.( <= ) Config.target_file_line exit_loc.line
+
+
   let need_specialization astates =
     List.exists astates ~f:(fun res ->
         match PulseResult.ok res with
@@ -330,7 +338,7 @@ module PulseTransferFunctions = struct
         astate
 
 
-  let rec dispatch_call_eval_args
+  let rec dispatch_call_eval_args ?(is_target_proc = false)
       ({InterproceduralAnalysis.tenv; proc_desc; err_log} as analysis_data) path ret call_exp
       actuals func_args call_loc flags astate callee_pname =
     let astate =
@@ -407,7 +415,10 @@ module PulseTransferFunctions = struct
           | ISLLatentMemoryError _ ) as exec_state ->
             Ok exec_state
       in
-      List.map exec_states_res ~f:one_state
+      (* If caller is target procedure and callee's data is empty, we skip the combining the callee's data.
+         i.e., propagate only caller's data *)
+      if is_target_proc && List.is_empty exec_states_res then [Ok (ContinueProgram astate)]
+      else List.map exec_states_res ~f:one_state
     in
     let exec_states_res =
       if Topl.is_active () then
@@ -438,7 +449,8 @@ module PulseTransferFunctions = struct
     else exec_states_res
 
 
-  let dispatch_call analysis_data path ret call_exp actuals call_loc flags astate =
+  let dispatch_call ?(is_target_proc = false) analysis_data path ret call_exp actuals call_loc flags
+      astate =
     let<*> astate, callee_pname = PulseOperations.eval_proc_name path call_loc call_exp astate in
     (* special case for objc dispatch models *)
     let callee_pname, call_exp, actuals =
@@ -463,8 +475,8 @@ module PulseTransferFunctions = struct
             :: rev_func_args ) )
     in
     let func_args = List.rev rev_func_args in
-    dispatch_call_eval_args analysis_data path ret call_exp actuals func_args call_loc flags astate
-      callee_pname
+    dispatch_call_eval_args ~is_target_proc analysis_data path ret call_exp actuals func_args
+      call_loc flags astate callee_pname
 
 
   (* [get_dealloc_from_dynamic_types vars_types loc] returns a dealloc procname and vars and
@@ -667,6 +679,7 @@ module PulseTransferFunctions = struct
       (astate_n : NonDisjDomain.t)
       ({InterproceduralAnalysis.tenv; proc_desc; err_log} as analysis_data) _cfg_node
       (instr : Sil.instr) : ExecutionDomain.t list * PathContext.t * NonDisjDomain.t =
+    let is_target_proc = is_target_proc proc_desc in
     match astate with
     | AbortProgram _ | ISLLatentMemoryError _ | LatentAbortProgram _ | LatentInvalidAccess _ ->
         ([astate], path, astate_n)
@@ -719,8 +732,8 @@ module PulseTransferFunctions = struct
                   let call_flags = CallFlags.default in
                   let ret_id_void = (Ident.create_fresh Ident.knormal, StdTyp.void) in
                   let no_error_states =
-                    dispatch_call analysis_data path ret_id_void (Const (Cfun proc_name)) [] loc
-                      call_flags astate
+                    dispatch_call ~is_target_proc analysis_data path ret_id_void
+                      (Const (Cfun proc_name)) [] loc call_flags astate
                     |> List.filter_map ~f:(function
                          | Ok (ContinueProgram astate) ->
                              Some astate
@@ -796,7 +809,8 @@ module PulseTransferFunctions = struct
       | Call (ret, call_exp, actuals, loc, call_flags) ->
           let astate_n = check_modified_before_dtor actuals call_exp astate astate_n in
           let astates =
-            dispatch_call analysis_data path ret call_exp actuals loc call_flags astate
+            dispatch_call ~is_target_proc analysis_data path ret call_exp actuals loc call_flags
+              astate
             |> PulseReport.report_exec_results tenv proc_desc err_log loc
           in
           let astate_n, astates =
@@ -853,7 +867,7 @@ module PulseTransferFunctions = struct
           ([ContinueProgram astate], path, astate_n) )
 
 
-  let exec_instr ((astate, path), astate_n) cost analysis_data cfg_node instr :
+  let exec_instr (((astate, path) as old_astate), astate_n) cost analysis_data cfg_node instr :
       DisjDomain.t list * NonDisjDomain.t =
     let heap_size = heap_size () in
     ( match Config.pulse_max_heap with
@@ -879,10 +893,16 @@ module PulseTransferFunctions = struct
     in
     (* Sometimes instead of stopping on contradictions a false path condition is recorded
        instead. Prune these early here so they don't spuriously count towards the disjunct limit. *)
-    ( List.filter_map astates ~f:(fun exec_state ->
+    let astates =
+      List.filter_map astates ~f:(fun exec_state ->
           if ExecutionDomain.is_unsat_cheap exec_state then None
           else Some (exec_state, PathContext.post_exec_instr path) )
-    , astate_n )
+    in
+    (* Heuristic: Sometimes no astate reaches the target point due to insufficient disjunctions.
+        To avoid this, we ensure that at least one astate is propagated when inside a target procedure. *)
+    if is_target_proc analysis_data.InterproceduralAnalysis.proc_desc && List.is_empty astates then
+      ([old_astate], astate_n)
+    else (astates, astate_n)
 
 
   let pp_session_name _node fmt = F.pp_print_string fmt "Pulse"
