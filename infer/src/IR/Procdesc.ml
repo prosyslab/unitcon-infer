@@ -654,7 +654,7 @@ let append_locals pdesc new_locals = pdesc.attributes.locals <- pdesc.attributes
 
 (* In the case of a forced alarm, add the current node as a predecessor of the exception node.
    This way, the multiple exceptions are handled. *)
-let set_succs (node : Node.t) ~normal:succs_opt ~exn:exn_opt =
+let set_succs ?(pred_exn = false) (node : Node.t) ~normal:succs_opt ~exn:exn_opt =
   let remove_pred pred_node (from_node : Node.t) =
     from_node.preds <- List.filter from_node.preds ~f:(fun pred -> not (Node.equal pred pred_node))
   in
@@ -670,7 +670,8 @@ let set_succs (node : Node.t) ~normal:succs_opt ~exn:exn_opt =
       List.iter node.succs ~f:(remove_pred node) ;
       List.iter new_succs ~f:(add_pred node) ;
       node.succs <- new_succs ) ;
-  if not Config.with_target then Option.iter exn_opt ~f:(fun exn -> node.exn <- exn)
+  if (not Config.with_target) || not pred_exn then
+    Option.iter exn_opt ~f:(fun exn -> node.exn <- exn)
   else
     Option.iter exn_opt ~f:(fun exn ->
         List.iter exn ~f:(add_exn_pred node) ;
@@ -740,6 +741,18 @@ let deep_copy_code_from_pdesc ~orig_pdesc ~dest_pdesc =
   dest_pdesc.nodes_num <- orig_pdesc.nodes_num
 
 
+let exist_exception_handler nodes =
+  List.fold_left ~init:false
+    ~f:(fun check node ->
+      match node with
+      | {Node.kind= Stmt_node ExceptionHandler}
+      | {Node.kind= Prune_node (_, _, PruneNodeKind_ExceptionHandler)} ->
+          true
+      | _ ->
+          check )
+    nodes
+
+
 (** Set the successor and exception nodes. If this is a join node right before the exit node, add an
     extra node in the middle, otherwise nullify and abstract instructions cannot be added after a
     conditional. *)
@@ -751,7 +764,7 @@ let node_set_succs pdesc (node : Node.t) ~normal:succs ~exn =
       set_succs node ~normal:(Some [node']) ~exn:(Some exn) ;
       set_succs node' ~normal:(Some [exit_node]) ~exn:(Some exn)
   | _ ->
-      set_succs node ~normal:(Some succs) ~exn:(Some exn)
+      set_succs node ~pred_exn:(exist_exception_handler exn) ~normal:(Some succs) ~exn:(Some exn)
 
 
 module PreProcCfg = struct
