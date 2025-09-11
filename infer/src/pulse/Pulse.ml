@@ -813,6 +813,25 @@ module PulseTransferFunctions = struct
               astate
             |> PulseReport.report_exec_results tenv proc_desc err_log loc
           in
+          (* Add a not-null condition to the function’s receiver object
+             only when the analysis state is error-free. *)
+          let astates =
+            List.map astates ~f:(fun astate ->
+                match astate with
+                | ISLLatentMemoryError _
+                | AbortProgram _
+                | ExitProgram _
+                | ExceptionRaised _
+                | LatentAbortProgram _
+                | LatentInvalidAccess _ ->
+                    astate
+                | ContinueProgram astate' -> (
+                  match List.hd actuals with
+                  | Some (exp, _) ->
+                      ContinueProgram (PulseOperations.add_potential_pc_for_call exp astate')
+                  | None ->
+                      astate ) )
+          in
           let astate_n, astates =
             PulseNonDisjunctiveOperations.add_copies path loc call_exp actuals astates astate_n
           in

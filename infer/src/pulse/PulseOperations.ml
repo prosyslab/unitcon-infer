@@ -1106,6 +1106,27 @@ let add_potential_pc rhs astate =
         (Var.get_all_vars_in_exp e)
 
 
+let add_potential_pc_for_call exp astate =
+  match (exp : Exp.t) with
+  | UnOp _
+  | BinOp _
+  | Exn _
+  | Closure _
+  | Const _
+  | Cast _
+  | Lvar _
+  | Sizeof _
+  | Lfield _
+  | Lindex _ ->
+      astate
+  | Var id -> (
+    match Stack.find_opt (Var.of_id id) astate with
+    | Some (value, _) ->
+        PulseArithmetic.and_neq_null value astate
+    | None ->
+        astate )
+
+
 type call_kind =
   [ `Closure of (Exp.t * Pvar.t * Typ.t * CapturedVar.capture_mode) list
   | `Var of Ident.t

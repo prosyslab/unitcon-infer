@@ -350,6 +350,8 @@ val add_model_or_unknown_call :
 
 val add_potential_pc : Exp.t -> t -> t
 
+val add_potential_pc_for_call : Exp.t -> t -> t
+
 type call_kind =
   [ `Closure of (Exp.t * Pvar.t * Typ.t * CapturedVar.capture_mode) list
   | `Var of Ident.t
