@@ -12,11 +12,14 @@ Started](http://fbinfer.com/docs/getting-started) page for
 details on how to install packaged versions of Infer. To build Infer
 from source, see [INSTALL.md](./INSTALL.md).
 
-## JavaVersion
+## Java Version
 
-`Unitcon`의 모든 벤치마크는 `Java 8`을 사용하여 컴파일된다.  
-따라서 `Infer`를 설치하고 사용하기 전, `infer/src/base/Version.ml` 파일에서 `java_version` 이 `8`인지 확인한다.  
-즉, `java_version = int_of_string_opt "8"` 이어야 한다.
+All benchmarks in `UnitCon` are compiled with `Java 8`.  
+Before installing and using `Infer`, make sure that the `java_version` in `infer/src/base/Version.ml` is set to `8`.  
+That is, the file should contain the line:
+```ml
+let java_version = int_of_string_opt "8"
+```
 
 ## Contributing
 
