@@ -715,6 +715,58 @@ module Graphics = struct
     [astate1; astate2]
 end
 
+module AtomicBoolean = struct
+  let pkg_name = "java.util.concurrent.atomic"
+
+  let class_name = "AtomicBoolean"
+
+  let internal_bool = mk_java_field pkg_name class_name "__infer_model_backing_boolean"
+
+  let construct path this_address init_value event location astate =
+    let this = (AbstractValue.mk_fresh (), Hist.single_event path event) in
+    let* astate, int_field =
+      PulseOperations.eval_access path Write location this (FieldAccess internal_bool) astate
+    in
+    let* astate = PulseOperations.write_deref path location ~ref:int_field ~obj:init_value astate in
+    PulseOperations.write_deref path location ~ref:this_address ~obj:this astate
+
+
+  let init this_address init_value : model =
+   fun {path; location} astate ->
+    let event = Hist.call_event path location "AtomicBoolean.init" in
+    let<+> astate = construct path this_address init_value event location astate in
+    astate
+
+
+  let update path bool new_val _new_val_hist event location _ret_id astate =
+    let<*> astate, bool_val =
+      PulseOperations.eval_access path Read location bool Dereference astate
+    in
+    let<*> astate' =
+      write_field path internal_bool
+        (new_val, Hist.single_event path event)
+        location bool_val astate
+    in
+    [Ok (Basic.continue astate')]
+
+
+  let set bool (new_val, new_val_hist) : model =
+   fun {path; location; ret= ret_id, _} astate ->
+    let event = Hist.call_event path location "AtomicBoolean.set()" in
+    update path bool new_val new_val_hist event location ret_id astate
+
+
+  let load_backing_bool path location this astate =
+    let* astate, obj = PulseOperations.eval_access path Read location this Dereference astate in
+    load_field path internal_bool location obj astate
+
+
+  let get this : model =
+   fun {path; location; ret= ret_id, _} astate ->
+    let<*> astate, _bool_addr, (bool_value, hist) = load_backing_bool path location this astate in
+    PulseOperations.write_id ret_id (bool_value, Hist.hist path hist) astate |> Basic.ok_continue
+end
+
 let non_static_method name1 (_, procname) name2 =
   (not (Procname.is_java_static_method procname)) && String.equal name1 name2
 
@@ -918,6 +970,12 @@ let matchers : matcher list =
   ; +map_context_tenv (PatternMatch.Java.implements "javax.swing.JComponent")
     &:: "getGraphics" <>$ capt_arg_payload
     $--> Graphics.get ~desc:"JComponent.getGraphics()"
+  ; +map_context_tenv (PatternMatch.Java.implements "java.util.concurrent.atomic.AtomicBoolean")
+    &:: "<init>" <>$ capt_arg_payload $+ capt_arg_payload $--> AtomicBoolean.init
+  ; +map_context_tenv (PatternMatch.Java.implements "java.util.concurrent.atomic.AtomicBoolean")
+    &:: "set" <>$ capt_arg_payload $+ capt_arg_payload $--> AtomicBoolean.set
+  ; +map_context_tenv (PatternMatch.Java.implements "java.util.concurrent.atomic.AtomicBoolean")
+    &:: "get" <>$ capt_arg_payload $--> AtomicBoolean.get
   ; +BuiltinDecl.(match_builtin __instanceof) <>$ capt_arg_payload $+ capt_exp $--> instance_of
   ; ( +map_context_tenv PatternMatch.Java.implements_enumeration
     &:: "nextElement" <>$ capt_arg_payload
