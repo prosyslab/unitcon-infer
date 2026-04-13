@@ -29,6 +29,11 @@ type contradiction = private
   | ISLPreconditionMismatch
   | PathCondition
 
+val subst_dep_symbols :
+     (AbstractValue.t * ValueHistory.t) AbstractValue.Map.t
+  -> BaseDependency.value
+  -> BaseDependency.value
+
 val apply_prepost :
      PathContext.t
   -> is_isl_error_prepost:bool

@@ -339,14 +339,21 @@ val remove_vars : Var.t list -> Location.t -> t -> t
 val check_address_escape :
   Location.t -> Procdesc.t -> AbstractValue.t -> ValueHistory.t -> t -> t AccessResult.t
 
-val add_load_dependency : Ident.t -> Exp.t -> t -> t
+val add_dep_addr_to_addr : AbstractValue.t -> AbstractValue.t -> t -> t
+
+val find_and_add_dep_addr_to_addr : AbstractValue.t -> AbstractValue.t -> t -> t
+
+val add_dep_addr_to_var : Var.t -> AbstractValue.t -> t -> t
+
+val find_and_add_dep_addr_to_var : Var.t -> AbstractValue.t -> t -> t
+
+val add_load_dependency : Ident.t -> Exp.t -> AbstractValue.t -> t -> t
 
 val add_store_dependency : Exp.t -> Exp.t -> t -> t
 
 val add_return_dependency : Pvar.t -> t -> t
 
-val add_model_or_unknown_call :
-  (Exp.t * Typ.t) list -> AbstractValue.t list -> Ident.t * Typ.t -> t -> t
+val add_binding_dependency : Exp.t -> AbstractValue.t -> t -> t
 
 val add_potential_pc : Exp.t -> t -> t
 

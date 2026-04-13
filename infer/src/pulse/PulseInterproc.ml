@@ -193,6 +193,31 @@ let translate_access_to_caller subst (access_callee : BaseMemory.Access.t) : _ *
       (subst, access_callee)
 
 
+let subst_dep_symbol_opt subst addr =
+  match AddressMap.find_opt addr subst with
+  | None ->
+      None
+  | Some (addr_caller, _) ->
+      Some (Dependency.of_abstract_value addr_caller)
+
+
+let add_subst_dep_symbol subst addr deps =
+  match subst_dep_symbol_opt subst addr with
+  | Some subst_sym ->
+      BaseDependency.Set.add subst_sym deps
+  | None ->
+      deps
+
+
+let subst_dep_symbols subst deps =
+  BaseDependency.Set.fold
+    (fun sym acc ->
+      if BaseDependency.is_abstract_value sym then
+        add_subst_dep_symbol subst (BaseDependency.to_abstract_value sym) acc
+      else acc )
+    deps BaseDependency.Set.empty
+
+
 (* {3 reading the pre from the current state} *)
 
 (** Materialize the (abstract memory) subgraph of [pre] reachable from [addr_pre] in
@@ -407,6 +432,25 @@ let call_state_subst_find_or_new call_state addr_callee ~default_hist_caller =
   else ({call_state with subst= new_subst}, addr_hist_caller)
 
 
+let record_post_dependency AbductiveDomain.{post} call_state =
+  let callee_deps = (post :> BaseDomain.t).dependency in
+  let subst = call_state.subst in
+  let astate =
+    BaseDependency.fold
+      (fun symbol deps astate ->
+        if BaseDependency.is_abstract_value symbol then
+          match subst_dep_symbol_opt subst (BaseDependency.to_abstract_value symbol) with
+          | Some subst_sym ->
+              let subst_deps = subst_dep_symbols subst deps in
+              Dependency.combine subst_sym subst_deps astate
+          | None ->
+              astate
+        else astate )
+      callee_deps call_state.astate
+  in
+  {call_state with astate}
+
+
 let delete_edges_in_callee_pre_from_caller ~edges_pre_opt addr_caller call_state =
   match
     BaseMemory.find_opt addr_caller (call_state.astate.AbductiveDomain.post :> BaseDomain.t).heap
@@ -479,8 +523,8 @@ let record_post_cell ({PathContext.timestamp} as path) callee_proc_name call_loc
   ; astate= AbductiveDomain.set_post_edges addr_caller edges_post_caller call_state.astate }
 
 
-let rec record_post_for_address path callee_proc_name call_loc
-    ({AbductiveDomain.pre; _} as pre_post) ~addr_callee ~addr_hist_caller call_state =
+let rec record_post_for_address path callee_proc_name call_loc ({AbductiveDomain.pre} as pre_post)
+    ~addr_callee ~addr_hist_caller call_state =
   L.d_printfln "%a<->%a" AbstractValue.pp addr_callee AbstractValue.pp (fst addr_hist_caller) ;
   match visit call_state ~pre:(pre :> BaseDomain.t) ~addr_callee ~addr_hist_caller with
   | `AlreadyVisited, call_state ->
@@ -569,6 +613,21 @@ let record_post_for_return ({PathContext.timestamp} as path) callee_proc_name ca
             ~addr_hist_caller:(return_caller, return_caller_hist)
             call_state
         in
+        let return_deps =
+          BaseDependency.find_opt
+            (BaseDependency.of_abstract_value addr_return)
+            (pre_post.AbductiveDomain.post :> BaseDomain.t).BaseDomain.dependency
+        in
+        let astate =
+          match return_deps with
+          | None ->
+              call_state.astate
+          | Some deps ->
+              Dependency.combine
+                (BaseDependency.of_abstract_value return_caller)
+                (subst_dep_symbols call_state.subst deps)
+                call_state.astate
+        in
         (* need to add the call to the returned history too *)
         let return_caller_hist =
           ValueHistory.sequence ~context:path.conditions
@@ -577,7 +636,7 @@ let record_post_for_return ({PathContext.timestamp} as path) callee_proc_name ca
             )
             return_caller_hist
         in
-        (call_state, Some (return_caller, return_caller_hist)) )
+        ({call_state with astate}, Some (return_caller, return_caller_hist)) )
 
 
 let apply_post_for_parameters path callee_proc_name call_location pre_post ~formals ~actuals
@@ -721,6 +780,7 @@ let apply_post path callee_proc_name call_location pre_post ~captured_formals ~c
       |> apply_post_for_globals path callee_proc_name call_location pre_post
       |> record_post_for_return path callee_proc_name call_location pre_post
     in
+    let call_state = record_post_dependency pre_post call_state in
     let+ call_state =
       record_post_remaining_attributes path callee_proc_name call_location pre_post call_state
       |> record_skipped_calls callee_proc_name call_location pre_post

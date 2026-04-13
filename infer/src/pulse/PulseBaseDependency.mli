@@ -36,4 +36,12 @@ val of_abstract_value : AbstractValue.t -> Symbol.t
 
 val of_var : Var.t -> Symbol.t
 
+val is_abstract_value : Symbol.t -> bool
+
+val to_abstract_value : Symbol.t -> AbstractValue.t
+
+val to_var : Symbol.t -> Var.t
+
+val pp_value : F.formatter -> value -> unit
+
 val pp : F.formatter -> t -> unit

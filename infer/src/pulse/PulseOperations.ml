@@ -835,6 +835,44 @@ let get_closure_captured_actuals path location ~captured_actuals astate =
 
 
 (* For Dependency Analysis *)
+(* addr -> m(addr) ∪ {dep_addr} *)
+let add_dep_addr_to_addr addr dep_addr astate =
+  let addr_sym = Dependency.of_abstract_value addr in
+  let dep_addr_sym = Dependency.of_abstract_value dep_addr in
+  Dependency.combine addr_sym (Dependency.singleton_elem dep_addr_sym) astate
+
+
+(* addr -> m(addr) ∪ m(dep_addr_to_find) *)
+let find_and_add_dep_addr_to_addr addr dep_addr_to_find astate =
+  let addr_sym = Dependency.of_abstract_value addr in
+  let to_find_sym = Dependency.of_abstract_value dep_addr_to_find in
+  let deps = Dependency.find to_find_sym astate in
+  Dependency.combine addr_sym deps astate
+
+
+(* var -> m(var) ∪ {dep_addr} *)
+let add_dep_addr_to_var var dep_addr astate =
+  let var_sym = Dependency.of_var var in
+  let dep_addr_sym = Dependency.of_abstract_value dep_addr in
+  Dependency.combine var_sym (Dependency.singleton_elem dep_addr_sym) astate
+
+
+(* var -> m(var) ∪ m(dep_addr_to_find) *)
+let find_and_add_dep_addr_to_var var dep_addr_to_find astate =
+  let var_sym = Dependency.of_var var in
+  let to_find_sym = Dependency.of_abstract_value dep_addr_to_find in
+  let deps = Dependency.find to_find_sym astate in
+  Dependency.combine var_sym deps astate
+
+
+(* { addr } ∪ m( addr ) *)
+let extend_addr_dep addr astate =
+  let sym = Dependency.of_abstract_value addr in
+  let dep = Dependency.find sym astate in
+  Dependency.add_elem sym dep
+
+
+(* { stack(var) } ∪ m( stack(var) ) *)
 let extend_var_dep var astate =
   match Stack.find_opt var astate with
   | Some (addr, _) ->
@@ -880,54 +918,70 @@ let collect_dep_of_exps exp_list astate =
     exp_list
 
 
-let add_load_dependency lhs rhs astate =
+let add_load_dependency lhs rhs rhs_addr astate =
   let lhs_sym = Dependency.of_var (Var.of_id lhs) in
   match (rhs : Exp.t) with
   | Var id -> (
     match extend_var_dep (Var.of_id id) astate with
     | Some dep ->
+        let addr_dep = extend_addr_dep rhs_addr astate in
+        let dep = Dependency.union_one_dep dep addr_dep in
         Dependency.add lhs_sym dep astate
     | None ->
         astate )
   | UnOp (_, e, _) | Cast (_, e) ->
-      Sequence.fold ~init:astate
-        ~f:(fun astate v ->
-          match extend_var_dep v astate with
-          | Some dep ->
-              Dependency.combine lhs_sym dep astate
-          | None ->
-              astate )
-        (Var.get_all_vars_in_exp e)
+      let astate =
+        Sequence.fold ~init:astate
+          ~f:(fun astate v ->
+            match extend_var_dep v astate with
+            | Some dep ->
+                Dependency.combine lhs_sym dep astate
+            | None ->
+                astate )
+          (Var.get_all_vars_in_exp e)
+      in
+      let addr_dep = extend_addr_dep rhs_addr astate in
+      Dependency.combine lhs_sym addr_dep astate
   | BinOp (_, e1, e2) ->
       let vs1 = Var.get_all_vars_in_exp e1 in
       let vs2 = Var.get_all_vars_in_exp e2 in
-      Sequence.fold ~init:astate
-        ~f:(fun astate v ->
-          match extend_var_dep v astate with
-          | Some dep ->
-              Dependency.combine lhs_sym dep astate
-          | None ->
-              astate )
-        (Sequence.append vs1 vs2)
+      let astate =
+        Sequence.fold ~init:astate
+          ~f:(fun astate v ->
+            match extend_var_dep v astate with
+            | Some dep ->
+                Dependency.combine lhs_sym dep astate
+            | None ->
+                astate )
+          (Sequence.append vs1 vs2)
+      in
+      let addr_dep = extend_addr_dep rhs_addr astate in
+      Dependency.combine lhs_sym addr_dep astate
   | Exn _ | Closure _ | Const _ | Sizeof _ ->
       astate
   | Lvar pv -> (
     match extend_var_dep (Var.of_pvar pv) astate with
     | Some dep ->
+        let addr_dep = extend_addr_dep rhs_addr astate in
+        let dep = Dependency.union_one_dep dep addr_dep in
         Dependency.add lhs_sym dep astate
     | None ->
         astate )
   | Lfield (e, _, _) ->
-      Sequence.fold ~init:astate
-        ~f:(fun astate v ->
-          let sym = Dependency.of_var v in
-          let astate', deps = Dependency.eval sym astate in
-          match add_var_dep v deps astate with
-          | Some dep ->
-              Dependency.combine lhs_sym dep astate'
-          | None ->
-              astate' )
-        (Var.get_all_vars_in_exp e)
+      let astate =
+        Sequence.fold ~init:astate
+          ~f:(fun astate v ->
+            let sym = Dependency.of_var v in
+            let astate', deps = Dependency.eval sym astate in
+            match add_var_dep v deps astate with
+            | Some deps ->
+                Dependency.combine lhs_sym deps astate'
+            | None ->
+                astate' )
+          (Var.get_all_vars_in_exp e)
+      in
+      let addr_dep = Dependency.singleton_elem (Dependency.of_abstract_value rhs_addr) in
+      Dependency.combine lhs_sym addr_dep astate
   | Lindex (e1, e2) ->
       (* e1[e2] *)
       let astate' =
@@ -942,12 +996,16 @@ let add_load_dependency lhs rhs astate =
                 astate' )
           (Var.get_all_vars_in_exp e1)
       in
-      Sequence.fold ~init:astate'
-        ~f:(fun astate v ->
-          let sym = Dependency.of_var v in
-          let astate', deps = Dependency.eval sym astate in
-          Dependency.combine lhs_sym deps astate' )
-        (Var.get_all_vars_in_exp e2)
+      let astate' =
+        Sequence.fold ~init:astate'
+          ~f:(fun astate v ->
+            let sym = Dependency.of_var v in
+            let astate', deps = Dependency.eval sym astate in
+            Dependency.combine lhs_sym deps astate' )
+          (Var.get_all_vars_in_exp e2)
+      in
+      let addr_dep = Dependency.singleton_elem (Dependency.of_abstract_value rhs_addr) in
+      Dependency.combine lhs_sym addr_dep astate'
 
 
 let collect_use_symbols rhs astate =
@@ -1067,28 +1125,20 @@ let add_return_dependency pvar astate =
       astate
 
 
-(* For functions without a specification,
-   return dependencies are computed in the same way as composition load instruction dependencies.
-   e.g., Instruction: n$3 = no_spec_function(n$1, n$2)
-         Address: n$1 -> v2, n$2 -> v3
-         DependencyMap: n$3 -> {v2, v3} ∪ m(n$1) ∪ m(n$2)
+(* Since summary composition is computed using evaluated abstract values,
+   we encode variable dependencies within the abstract values to ensure proper dependency propagation.
+   e.g., Instruction: Call(n$0, n$1)
+         Variable Evalutation: Call(v3, v4)
+         DependencyMap: n$1 -> {v2, v4}
+   then, DependencyMap: n$1 -> {v2, v4}, v4 -> {v2, v4}
 *)
-let add_model_or_unknown_call actuals func_args ret astate =
-  let dep =
-    List.fold_left ~init:Dependency.empty_dep
-      ~f:(fun dep v ->
-        let symbol = Dependency.of_abstract_value v in
-        Dependency.add_elem symbol dep )
-      func_args
-  in
-  let dep =
-    List.fold_left ~init:dep
-      ~f:(fun acc (exp, _) ->
-        let dep' = collect_dep_of_exps (Var.get_all_vars_in_exp exp) astate in
-        Dependency.union_one_dep dep' acc )
-      actuals
-  in
-  add_def_id (fst ret) dep astate
+let add_binding_dependency exp actual astate =
+  match (exp : Exp.t) with
+  | Var id ->
+      let dep = Dependency.find (Dependency.of_var (Var.of_id id)) astate in
+      Dependency.combine (Dependency.of_abstract_value actual) dep astate
+  | _ ->
+      astate
 
 
 let add_potential_pc rhs astate =

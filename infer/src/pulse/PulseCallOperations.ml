@@ -32,6 +32,45 @@ let is_ptr_to_const formal_typ_opt =
       match formal_typ.desc with Typ.Tptr (t, _) -> Typ.is_const t.quals | _ -> false )
 
 
+(* For unknown function calls, we conservatively propagate all dependencies
+   from the function arguments to the return value. *)
+let add_return_dependency_for_unknown_call ret actuals ret_val astate =
+  let dep =
+    List.fold_left ~init:BaseDependency.Set.empty actuals ~f:(fun dep ((actual_val, _), _) ->
+        let dep_sym = BaseDependency.of_abstract_value actual_val in
+        let dep = BaseDependency.Set.add dep_sym dep in
+        match Dependency.find_opt dep_sym astate with
+        | Some found_dep ->
+            BaseDependency.Set.union found_dep dep
+        | None ->
+            dep )
+  in
+  let dep = Dependency.add_elem (BaseDependency.of_abstract_value ret_val) dep in
+  PulseOperations.add_def_id (fst ret) dep astate
+
+
+(* For unknown function calls, we conservatively propagate all dependencies
+   from the function arguments to the "this" actual. *)
+let add_this_dependency_for_unknown_call formals_opt actuals astate =
+  let actual_deps actuals =
+    List.fold_left ~init:BaseDependency.Set.empty actuals ~f:(fun deps ((actual_val, _), _) ->
+        let dep_sym = BaseDependency.of_abstract_value actual_val in
+        BaseDependency.Set.add dep_sym deps )
+  in
+  match formals_opt with
+  | Some (this_cand :: _) ->
+      if Pvar.is_this (fst this_cand) then
+        match actuals with
+        | ((this_actual_val, _), _) :: _ ->
+            let deps = actual_deps actuals in
+            Dependency.combine (BaseDependency.of_abstract_value this_actual_val) deps astate
+        | _ ->
+            astate
+      else astate
+  | _ ->
+      astate
+
+
 let unknown_call ({PathContext.timestamp} as path) call_loc (reason : CallEvent.t) callee_pname_opt
     ~ret ~actuals ~formals_opt ({AbductiveDomain.post} as astate) =
   let hist =
@@ -39,7 +78,12 @@ let unknown_call ({PathContext.timestamp} as path) call_loc (reason : CallEvent.
       (Call {f= reason; location= call_loc; in_call= ValueHistory.epoch; timestamp})
   in
   let ret_val = AbstractValue.mk_fresh () in
-  let astate = PulseOperations.write_id (fst ret) (ret_val, hist) astate in
+  (* If the call is unknown call, we add parameter dependencies to the return value and "this" actual *)
+  let astate = add_this_dependency_for_unknown_call formals_opt actuals astate in
+  let astate =
+    PulseOperations.write_id (fst ret) (ret_val, hist) astate
+    |> add_return_dependency_for_unknown_call ret actuals ret_val
+  in
   let astate = Decompiler.add_call_source ret_val reason actuals astate in
   (* set to [false] if we think the procedure called does not behave "functionally", i.e. return the
      same value for the same inputs *)
@@ -151,14 +195,6 @@ let unknown_call ({PathContext.timestamp} as path) call_loc (reason : CallEvent.
   |> add_skipped_proc
 
 
-let subst_return_dep subst one_dep =
-  AbstractValue.Map.fold
-    (fun key (value, _) acc ->
-      L.d_printfln "apply_callee subst (%a) -> (%a)" AbstractValue.pp key AbstractValue.pp value ;
-      BaseDependency.Set.subst_var (key, value) acc )
-    subst one_dep
-
-
 let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee_pname call_loc
     callee_exec_state ~ret ~captured_formals ~captured_actuals ~formals ~actuals astate
     caller_astate =
@@ -209,7 +245,8 @@ let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee
       let post =
         match return_dep with
         | Some dep ->
-            let dep = subst_return_dep subst dep in
+            (* for example ret is n$10 *)
+            let dep = PulseInterproc.subst_dep_symbols subst dep in
             PulseOperations.add_def_id (fst ret) dep post
         | None ->
             post
@@ -429,7 +466,7 @@ let call_aux tenv path caller_proc_desc call_loc callee_pname ret actuals call_k
 
 
 let call tenv path ~caller_proc_desc ~(callee_data : (Procdesc.t * PulseSummary.t) option) call_loc
-    callee_pname caller_actuals ~ret ~actuals ~formals_opt ~call_kind (astate : AbductiveDomain.t) =
+    callee_pname ~ret ~actuals ~formals_opt ~call_kind (astate : AbductiveDomain.t) =
   (* a special case for objc nil messaging *)
   let unknown_objc_nil_messaging astate_unknown proc_name proc_attrs =
     let result_unknown =
@@ -457,7 +494,6 @@ let call tenv path ~caller_proc_desc ~(callee_data : (Procdesc.t * PulseSummary.
       (* no spec found for some reason (unknown function, ...) *)
       L.d_printfln "No spec found for %a@\n" Procname.pp callee_pname ;
       let arg_values = List.map actuals ~f:(fun ((value, _), _) -> value) in
-      let astate = PulseOperations.add_model_or_unknown_call caller_actuals arg_values ret astate in
       let<*> astate_unknown =
         conservatively_initialize_args arg_values astate
         |> unknown_call path call_loc (SkippedKnownCall callee_pname) (Some callee_pname) ~ret

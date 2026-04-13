@@ -87,11 +87,17 @@ module Dependency : sig
 
   val empty_dep : BaseDependency.value
 
+  val pp_key : Format.formatter -> BaseDependency.key -> unit
+
+  val pp_value : Format.formatter -> BaseDependency.value -> unit
+
   val pp : Format.formatter -> BaseDependency.t -> unit
 
   val eval : BaseDependency.key -> t -> t * BaseDependency.value
 
   val add_elem : BaseDependency.key -> BaseDependency.value -> BaseDependency.value
+
+  val singleton_elem : BaseDependency.key -> BaseDependency.value
 
   val union_one_dep : BaseDependency.value -> BaseDependency.value -> BaseDependency.value
 

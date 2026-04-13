@@ -242,6 +242,10 @@ module Dependency = struct
 
   let empty_dep = BaseDependency.Set.empty
 
+  let pp_key = BaseDependency.Symbol.pp
+
+  let pp_value = BaseDependency.pp_value
+
   let pp = BaseDependency.pp
 
   let map_post_dependency ~f astate =
@@ -274,6 +278,8 @@ module Dependency = struct
 
 
   let add_elem elem deps = BaseDependency.Set.add elem deps
+
+  let singleton_elem elem = BaseDependency.Set.singleton elem
 
   let union_one_dep deps deps' = BaseDependency.Set.union deps deps'
 

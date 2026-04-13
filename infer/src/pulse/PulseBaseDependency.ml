@@ -70,6 +70,14 @@ let of_abstract_value v = Symbol.AbsSym v
 
 let of_var v = Symbol.VarSym v
 
+let is_abstract_value = function Symbol.AbsSym _ -> true | _ -> false
+
+let to_abstract_value = function Symbol.AbsSym v -> v | _ -> assert false
+
+let to_var = function Symbol.VarSym v -> v | _ -> assert false
+
+let pp_value fmt value = F.fprintf fmt "(%a)" Set.pp value
+
 let pp fmt m =
   let pp_item fmt (v, v_set) = F.fprintf fmt "%a -> (%a)" Symbol.pp v Set.pp v_set in
   PrettyPrintable.pp_collection ~pp_item fmt (M.bindings m)
