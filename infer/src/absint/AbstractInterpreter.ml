@@ -493,20 +493,18 @@ struct
   let calculate_cost node disj =
     let node = CFG.Node.underlying_node node in
     let loc = Procdesc.Node.get_loc node in
-    L.debug Analysis Verbose "\nThe cost of %d line node is being calculated...\n" loc.line ;
-    if T.is_visited_path_line loc.line disj then (
-      L.debug Analysis Verbose "Already added line. To avoid double charging, returns 0\n" ;
-      T.mk_cost_int 0 )
-    else (
-      L.debug Analysis Verbose "New added line.\n" ;
-      if is_target_proc_from_node node then
-        let is_target_node = Int.equal Config.target_file_line loc.line in
-        if is_target_node then T.mk_cost_int 0
-        else if (not is_target_node) && (is_early_return_node node || is_exception_node node) then
-          T.mk_cost_inf
-        else T.mk_cost_int 1
-      else if is_exception_node node then T.mk_cost_inf
-      else T.mk_cost_int 1 )
+    L.debug Analysis Verbose "The cost of %d line node is being calculated...\n" loc.line ;
+    let calculate_cost_imposition node =
+      if is_exception_node node then T.mk_cost_inf
+      else if T.is_visited_path_line loc.line disj then T.mk_cost_int 0
+      else T.mk_cost_int 1
+    in
+    if is_target_proc_from_node node then
+      let is_target_node = Int.equal Config.target_file_line loc.line in
+      if is_target_node then T.mk_cost_int 0
+      else if is_early_return_node node || is_exception_node node then T.mk_cost_inf
+      else calculate_cost_imposition node
+    else calculate_cost_imposition node
 
 
   let exec_instr (pre_disjuncts, non_disj) analysis_data node _ instr =

@@ -23,7 +23,7 @@ type cost = PlusInf | Int of int
 let compare_cost c1 c2 =
   match (c1, c2) with
   | PlusInf, PlusInf ->
-      -1
+      0
   | PlusInf, _ ->
       1
   | _, PlusInf ->
