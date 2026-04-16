@@ -36,6 +36,34 @@ type model = model_data -> AbductiveDomain.t -> ExecutionDomain.t AccessResult.t
 
 type matcher = (Tenv.t * Procname.t, model, arg_payload) ProcnameDispatcher.Call.matcher
 
+let add_dependency_for_load_field field_addr addr astate =
+  PulseOperations.add_dep_addr_to_addr field_addr addr astate
+  |> PulseOperations.find_and_add_dep_addr_to_addr field_addr addr
+
+
+let add_dependency_for_write_field field_addr ~ref addr new_val astate =
+  let astate =
+    PulseOperations.add_dep_addr_to_addr field_addr addr astate
+    |> PulseOperations.add_dep_addr_to_addr field_addr new_val
+    |> PulseOperations.find_and_add_dep_addr_to_addr field_addr addr
+    |> PulseOperations.find_and_add_dep_addr_to_addr field_addr new_val
+  in
+  (* let astate = add_dependency_for_unknown_effect addr field_addr new_val astate in *)
+  match ref with
+  | Some ref_addr ->
+      PulseOperations.add_dep_addr_to_addr field_addr ref_addr astate
+      |> PulseOperations.find_and_add_dep_addr_to_addr field_addr ref_addr
+      (* |> add_dependency_for_unknown_effect ref_addr field_addr new_val *)
+  | None ->
+      astate
+
+
+(* add return dependency. simplify the dependency calculation for load and store operation. *)
+let add_dependency_for_return ret_id value astate =
+  PulseOperations.add_dep_addr_to_var ret_id value astate
+  |> PulseOperations.find_and_add_dep_addr_to_var ret_id value
+
+
 module Hist = struct
   let mk_desc ?more desc =
     Option.value_map ~default:desc more ~f:(fun extra_info ->
@@ -184,7 +212,9 @@ module Basic = struct
   let id_first_arg ~desc (arg_value, arg_history) : model =
    fun {path; location; ret= ret_id, _} astate ->
     let ret_value = (arg_value, Hist.add_call path location desc arg_history) in
-    PulseOperations.write_id ret_id ret_value astate |> ok_continue
+    PulseOperations.write_id ret_id ret_value astate
+    |> add_dependency_for_return (Var.of_id ret_id) arg_value
+    |> ok_continue
 
 
   let call_destructor

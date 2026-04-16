@@ -17,34 +17,6 @@ let mk_java_field pkg clazz field =
   Fieldname.make (Typ.JavaClass (JavaClassName.make ~package:(Some pkg) ~classname:clazz)) field
 
 
-let add_dependency_for_load_field field_addr addr astate =
-  PulseOperations.add_dep_addr_to_addr field_addr addr astate
-  |> PulseOperations.find_and_add_dep_addr_to_addr field_addr addr
-
-
-let add_dependency_for_write_field field_addr ~ref addr new_val astate =
-  let astate =
-    PulseOperations.add_dep_addr_to_addr field_addr addr astate
-    |> PulseOperations.add_dep_addr_to_addr field_addr new_val
-    |> PulseOperations.find_and_add_dep_addr_to_addr field_addr addr
-    |> PulseOperations.find_and_add_dep_addr_to_addr field_addr new_val
-  in
-  (* let astate = add_dependency_for_unknown_effect addr field_addr new_val astate in *)
-  match ref with
-  | Some ref_addr ->
-      PulseOperations.add_dep_addr_to_addr field_addr ref_addr astate
-      |> PulseOperations.find_and_add_dep_addr_to_addr field_addr ref_addr
-      (* |> add_dependency_for_unknown_effect ref_addr field_addr new_val *)
-  | None ->
-      astate
-
-
-(* add return dependency. simplify the dependency calculation for load and store operation. *)
-let add_dependency_for_return ret_id value astate =
-  PulseOperations.add_dep_addr_to_var ret_id value astate
-  |> PulseOperations.find_and_add_dep_addr_to_var ret_id value
-
-
 let load_field path field location obj astate =
   let* astate, field_addr =
     PulseOperations.eval_access path Read location obj (FieldAccess field) astate
@@ -53,7 +25,7 @@ let load_field path field location obj astate =
     PulseOperations.eval_access path Read location field_addr Dereference astate
   in
   let astate =
-    add_dependency_for_load_field (fst field_val) (fst obj) astate
+    add_dependency_for_load_field (fst field_addr) (fst obj) astate
     |> add_dependency_for_load_field (fst field_val) (fst field_addr)
   in
   (astate, field_addr, field_val)
@@ -674,7 +646,7 @@ module Map = struct
 
 
   (* Auxiliary function that changes the state by
-     (1) assuming that internal is_empty field has value one
+     (1) assuming that internal is_empty field has unknown value
      (2) in such case we can return 0 *)
   let get_key_coll_is_empty path is_empty_val is_empty_expected_val event location ret_id astate =
     let not_found_val = AbstractValue.mk_fresh () in
@@ -682,11 +654,12 @@ module Map = struct
       PulseArithmetic.prune_binop ~negated:false Binop.Eq (AbstractValueOperand is_empty_val)
         (AbstractValueOperand is_empty_expected_val) astate
       >>= PulseArithmetic.and_eq_int not_found_val IntLit.zero
-      >>= PulseArithmetic.and_eq_int is_empty_expected_val IntLit.one
     in
     let hist = Hist.single_event path event in
     let astate =
       PulseOperations.write_id ret_id (not_found_val, hist) astate
+      |> add_dependency_for_return (Var.of_id ret_id) is_empty_val
+      |> add_dependency_for_return (Var.of_id ret_id) is_empty_expected_val
       |> add_dependency_for_return (Var.of_id ret_id) not_found_val
     in
     PulseOperations.invalidate path
@@ -697,7 +670,7 @@ module Map = struct
 
 
   (* Auxiliary function that splits the state into three, considering the case that
-     the internal is_empty field is not known to have value 1 *)
+     the internal is_empty field is not known to have unknown value *)
   let get_key_coll_not_known_empty key key_val value_val ret_id path event astate =
     (* case 1: given key is not equal to the key_field *)
     let null_val = AbstractValue.mk_fresh () in
@@ -706,6 +679,8 @@ module Map = struct
         (AbstractValueOperand key_val) astate
       >>= PulseArithmetic.and_eq_int null_val IntLit.zero
       >>| PulseOperations.write_id ret_id (null_val, Hist.single_event path event)
+      >>| add_dependency_for_return (Var.of_id ret_id) key
+      >>| add_dependency_for_return (Var.of_id ret_id) key_val
       >>| add_dependency_for_return (Var.of_id ret_id) null_val
       |> Basic.map_continue
     in
@@ -714,6 +689,8 @@ module Map = struct
       PulseArithmetic.prune_binop ~negated:false Eq (AbstractValueOperand key)
         (AbstractValueOperand key_val) astate
       >>| PulseOperations.write_id ret_id (value_val, Hist.single_event path event)
+      >>| add_dependency_for_return (Var.of_id ret_id) key
+      >>| add_dependency_for_return (Var.of_id ret_id) key_val
       >>| add_dependency_for_return (Var.of_id ret_id) value_val
       |> Basic.map_continue
     in
@@ -726,6 +703,7 @@ module Map = struct
     let<*> astate, coll_val =
       PulseOperations.eval_access path Read location coll Dereference astate
     in
+    let astate = add_dependency_for_load_field (fst coll_val) (fst coll) astate in
     let<*> astate, _, (is_empty_val, _) = load_field path is_empty_field location coll_val astate in
     (* case 1: map is empty *)
     let true_val = AbstractValue.mk_fresh () in
@@ -740,7 +718,6 @@ module Map = struct
       let<*> astate2 =
         PulseArithmetic.prune_binop ~negated:true Binop.Eq (AbstractValueOperand is_empty_val)
           (AbstractValueOperand true_val) astate2
-        >>= PulseArithmetic.and_eq_int true_val IntLit.one
       in
       get_key_coll_not_known_empty key key_val value_val ret_id path event astate2
     in

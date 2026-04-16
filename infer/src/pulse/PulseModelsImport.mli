@@ -35,6 +35,19 @@ type model = model_data -> AbductiveDomain.t -> ExecutionDomain.t AccessResult.t
 
 type matcher = (Tenv.t * Procname.t, model, arg_payload) ProcnameDispatcher.Call.matcher
 
+val add_dependency_for_load_field :
+  AbstractValue.t -> AbstractValue.t -> AbductiveDomain.t -> AbductiveDomain.t
+
+val add_dependency_for_write_field :
+     AbstractValue.t
+  -> ref:AbstractValue.t option
+  -> AbstractValue.t
+  -> AbstractValue.t
+  -> AbductiveDomain.t
+  -> AbductiveDomain.t
+
+val add_dependency_for_return : Var.t -> AbstractValue.t -> AbductiveDomain.t -> AbductiveDomain.t
+
 module Hist : sig
   val alloc_event : PathContext.t -> Location.t -> ?more:string -> string -> ValueHistory.event
 
