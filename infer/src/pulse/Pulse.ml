@@ -913,16 +913,38 @@ module PulseTransferFunctions = struct
     in
     (* Sometimes instead of stopping on contradictions a false path condition is recorded
        instead. Prune these early here so they don't spuriously count towards the disjunct limit. *)
-    let astates =
+    let astates' =
       List.filter_map astates ~f:(fun exec_state ->
           if ExecutionDomain.is_unsat_cheap exec_state then None
           else Some (exec_state, PathContext.post_exec_instr path) )
     in
     (* Heuristic: Sometimes no astate reaches the target point due to insufficient disjunctions.
-        To avoid this, we ensure that at least one astate is propagated when inside a target procedure. *)
-    if is_target_proc analysis_data.InterproceduralAnalysis.proc_desc && List.is_empty astates then
-      ([old_astate], astate_n)
-    else (astates, astate_n)
+        To avoid this, we ensure that at least one astate is propagated when inside a target procedure.
+        At this point, we only propagate the results of the dependecy analysis. *)
+    if is_target_proc analysis_data.InterproceduralAnalysis.proc_desc && List.is_empty astates' then
+      match List.hd astates with
+      | Some exec_astate ->
+          let exec_dep =
+            let exec_astate = ExecutionDomain.get_astate exec_astate in
+            (AbductiveDomain.get_post exec_astate).dependency
+          in
+          let astate =
+            AbductiveDomain.Dependency.map_post_dependency
+              ~f:(fun old_dep ->
+                BaseDependency.fold
+                  (fun key deps acc ->
+                    match BaseDependency.find_opt key acc with
+                    | Some old_deps ->
+                        BaseDependency.add key (BaseDependency.Set.union old_deps deps) acc
+                    | None ->
+                        BaseDependency.add key deps acc )
+                  exec_dep old_dep )
+              (fst old_astate |> ExecutionDomain.get_astate)
+          in
+          ([(ContinueProgram astate, snd old_astate)], astate_n)
+      | None ->
+          (astates', astate_n)
+    else (astates', astate_n)
 
 
   let pp_session_name _node fmt = F.pp_print_string fmt "Pulse"

@@ -93,6 +93,8 @@ module Dependency : sig
 
   val pp : Format.formatter -> BaseDependency.t -> unit
 
+  val map_post_dependency : f:(BaseDependency.t -> BaseDependency.t) -> t -> t
+
   val eval : BaseDependency.key -> t -> t * BaseDependency.value
 
   val add_elem : BaseDependency.key -> BaseDependency.value -> BaseDependency.value

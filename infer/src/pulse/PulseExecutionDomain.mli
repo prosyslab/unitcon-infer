@@ -42,6 +42,8 @@ val is_unsat_cheap : t -> bool
 
 val pp_summary : Format.formatter -> t -> (string * Yojson.Safe.t) list
 
+val get_astate : t -> AbductiveDomain.t
+
 val get_cost : t -> AbductiveDomain.cost
 
 val add_cost : AbductiveDomain.cost -> t -> t
