@@ -943,7 +943,7 @@ module PulseTransferFunctions = struct
           in
           ([(ContinueProgram astate, snd old_astate)], astate_n)
       | None ->
-          (astates', astate_n)
+          ([old_astate], astate_n)
     else (astates', astate_n)
 
 
