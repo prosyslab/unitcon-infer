@@ -1066,35 +1066,49 @@ let add_store_dependency lhs rhs astate =
         (Var.get_all_vars_in_exp e)
   | Lindex (e1, e2) ->
       (* e1[e2] *)
-      let index =
-        collect_all_addresses ~f:(fun addr acc -> addr :: acc) (Var.get_all_vars_in_exp e2) astate
-      in
-      Sequence.fold ~init:astate
-        ~f:(fun astate v ->
-          List.fold ~init:astate
-            ~f:(fun astate index ->
-              match Stack.find_opt v astate with
-              | Some (addr, _) -> (
-                match
-                  Memory.find_edge_opt addr (HilExp.Access.ArrayAccess (StdTyp.void, index)) astate
-                with
-                | Some (access_addr, _) ->
-                    let astate', deps_arr = Dependency.eval (Dependency.of_var v) astate in
-                    let astate', deps_index =
-                      Dependency.eval (Dependency.of_abstract_value index) astate'
-                    in
-                    let deps =
-                      Dependency.union_one_dep deps_arr use_symbols
-                      |> Dependency.union_one_dep deps_index
-                      |> Dependency.add_elem (Dependency.of_abstract_value addr)
-                    in
-                    Dependency.add (Dependency.of_abstract_value access_addr) deps astate'
+      let array = Var.get_all_vars_in_exp e1 in
+      let indices = Var.get_all_vars_in_exp e2 in
+      (* If the indices are constant, they are empty,
+       * so add the RHS dependency to the array *)
+      if Sequence.is_empty indices then
+        Sequence.fold ~init:astate
+          ~f:(fun astate v ->
+            match Stack.find_opt v astate with
+            | Some (addr, _) ->
+                Dependency.combine (Dependency.of_abstract_value addr) use_symbols astate
+            | None ->
+                astate )
+          array
+      else
+        let index = collect_all_addresses ~f:(fun addr acc -> addr :: acc) indices astate in
+        let add_dependency_to_index array_var array index astate =
+          let index_access = HilExp.Access.ArrayAccess (StdTyp.void, index) in
+          match Memory.find_edge_opt array index_access astate with
+          | Some (access_addr, _) ->
+              let astate', deps_arr = Dependency.eval (Dependency.of_var array_var) astate in
+              let astate', deps_index =
+                Dependency.eval (Dependency.of_abstract_value index) astate'
+              in
+              let deps =
+                Dependency.union_one_dep deps_arr use_symbols
+                |> Dependency.union_one_dep deps_index
+                |> Dependency.add_elem (Dependency.of_abstract_value array)
+              in
+              Dependency.add (Dependency.of_abstract_value access_addr) deps astate'
+          | None ->
+              astate
+        in
+        Sequence.fold ~init:astate
+          ~f:(fun astate v ->
+            List.fold ~init:astate
+              ~f:(fun astate index ->
+                match Stack.find_opt v astate with
+                | Some (addr, _) ->
+                    add_dependency_to_index v addr index astate
                 | None ->
                     astate )
-              | None ->
-                  astate )
-            index )
-        (Var.get_all_vars_in_exp e1)
+              index )
+          array
 
 
 let rec collect_nested_address_dep addr visited astate =
@@ -1123,6 +1137,18 @@ let add_return_dependency pvar astate =
       Dependency.combine (Dependency.of_abstract_value addr) dep astate
   | None ->
       astate
+
+
+let add_nested_addr_dependency_to_var var addr astate =
+  let empty_visited = AbstractValue.Set.empty in
+  let dep = collect_nested_address_dep addr empty_visited astate in
+  Dependency.combine (Dependency.of_var var) dep astate
+
+
+let add_nested_addr_dependency_to_addr addr astate =
+  let empty_visited = AbstractValue.Set.empty in
+  let dep = collect_nested_address_dep addr empty_visited astate in
+  Dependency.combine (Dependency.of_abstract_value addr) dep astate
 
 
 (* Since summary composition is computed using evaluated abstract values,

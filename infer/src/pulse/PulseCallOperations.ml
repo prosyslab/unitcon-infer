@@ -251,6 +251,15 @@ let apply_callee tenv ({PathContext.timestamp} as path) ~caller_proc_desc callee
         | None ->
             post
       in
+      let post =
+        if Procname.is_constructor callee_pname then
+          match actuals with
+          | ((receiver_addr, _), _) :: _ ->
+              PulseOperations.add_nested_addr_dependency_to_addr receiver_addr post
+          | _ ->
+              post
+        else post
+      in
       f subst post
     in
     (sat_unsat, contradiction)

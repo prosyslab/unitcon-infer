@@ -94,6 +94,20 @@ module Object = struct
     add_dependency_for_return (Var.of_id ret_id) (fst obj_copy) astate
 end
 
+module Arrays = struct
+  let as_list ~desc array : model =
+   fun {path; location; ret= ret_id, _} astate ->
+    let event = Hist.call_event path location desc in
+    let ret_val = AbstractValue.mk_fresh () in
+    let astate = PulseOperations.write_id ret_id (ret_val, Hist.single_event path event) astate in
+    let ret_var = Var.of_id ret_id in
+    let astate =
+      add_dependency_for_return ret_var (fst array) astate
+      |> PulseOperations.add_nested_addr_dependency_to_var ret_var (fst array)
+    in
+    [Ok (ContinueProgram astate)]
+end
+
 module Iterator = struct
   let constructor ~desc init : model =
    fun {path; location; ret} astate ->
@@ -299,6 +313,11 @@ module Collection = struct
     (* fst_field takes value stored in snd_field *)
     let<*> astate = write_field path fst_field snd_val location ~ref:(Some coll) coll_val astate in
     (* snd_field takes new value given *)
+    let astate =
+      add_dependency_for_write_field (fst snd_addr)
+        ~ref:(Option.map ~f:(fun x -> fst x) (Some coll))
+        (fst coll_val) (fst new_elem) astate
+    in
     let<*> astate = PulseOperations.write_deref path location ~ref:snd_addr ~obj:new_elem astate in
     (* Collection.add returns a boolean, in this case the return always has value one *)
     let<*> astate =
@@ -323,6 +342,40 @@ module Collection = struct
 
 
   let add ~desc coll new_elem : model = add_common ~desc coll new_elem
+
+  let add_all_from_collection ~desc coll src : model =
+   fun ({path; location; _} as model_data) astate ->
+    let<*> astate, src_val =
+      PulseOperations.eval_access path Read location src Dereference astate
+    in
+    let astate = add_dependency_for_load_field (fst src_val) (fst src) astate in
+    let<*> astate, _, src_fst = load_field path fst_field location src_val astate in
+    let<*> astate, _, src_snd = load_field path snd_field location src_val astate in
+    let continue_with_second post =
+      add_common ~desc coll src_snd model_data post
+      |> List.map ~f:(function
+           | Ok (ContinueProgram astate) ->
+               Ok (ContinueProgram astate)
+           | result ->
+               result )
+    in
+    add_common ~desc coll src_fst model_data astate
+    |> List.concat_map ~f:(function
+         | Ok (ContinueProgram post) ->
+             continue_with_second post
+         | result ->
+             [result] )
+
+
+  let add_all ~desc args : model =
+   fun model_data astate ->
+    match args with
+    | [ {ProcnameDispatcher.Call.FuncArg.arg_payload= coll}
+      ; {ProcnameDispatcher.Call.FuncArg.arg_payload= src} ] ->
+        add_all_from_collection ~desc coll src model_data astate
+    | _ ->
+        astate |> Basic.ok_continue
+
 
   let update path coll new_val new_val_hist event location ret_id astate =
     (* case0: element not present in collection *)
@@ -1079,6 +1132,9 @@ let matchers : matcher list =
     &:: "finish" <>$ capt_arg_payload $+...$--> Resource.release_this_only
   ; +map_context_tenv (PatternMatch.Java.implements_lang "Object")
     &:: "clone" $ capt_arg_payload $--> Object.clone
+  ; +map_context_tenv PatternMatch.Java.implements_arrays
+    &:: "asList" <>$ capt_arg_payload
+    $--> Arrays.as_list ~desc:"Arrays.asList"
   ; ( +map_context_tenv (PatternMatch.Java.implements_lang "System")
     &:: "arraycopy" $ capt_arg_payload $+ any_arg $+ capt_arg_payload
     $+...$--> fun src dest -> Basic.shallow_copy_model "System.arraycopy" dest src )
@@ -1092,6 +1148,9 @@ let matchers : matcher list =
   ; +map_context_tenv PatternMatch.Java.implements_list
     &:: "add" <>$ capt_arg_payload $+ any_arg $+ capt_arg_payload
     $--> Collection.add ~desc:"Collection.add()"
+  ; +map_context_tenv PatternMatch.Java.implements_list
+    &:: "addAll"
+    &++> Collection.add_all ~desc:"Collection.addAll(Collection)"
   ; +map_context_tenv PatternMatch.Java.implements_collection
     &:: "remove"
     &++> Collection.remove ~desc:"Collection.remove"

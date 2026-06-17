@@ -347,6 +347,10 @@ val add_dep_addr_to_var : Var.t -> AbstractValue.t -> t -> t
 
 val find_and_add_dep_addr_to_var : Var.t -> AbstractValue.t -> t -> t
 
+val add_nested_addr_dependency_to_var : Var.t -> AbstractValue.t -> t -> t
+
+val add_nested_addr_dependency_to_addr : AbstractValue.t -> t -> t
+
 val add_load_dependency : Ident.t -> Exp.t -> AbstractValue.t -> t -> t
 
 val add_store_dependency : Exp.t -> Exp.t -> t -> t
