@@ -838,6 +838,13 @@ module PulseTransferFunctions = struct
           in
           (astates, path, astate_n)
       | Prune (condition, loc, is_then_branch, if_kind) ->
+          let astate =
+            let guard =
+              PulseGuard.mk_explicit_prune ~location:loc ~timestamp:path.PathContext.timestamp
+                ~if_kind ~is_then_branch ~condition
+            in
+            AbductiveDomain.add_guard guard astate
+          in
           let prune_result = PulseOperations.prune path loc ~condition astate in
           let path =
             match PulseResult.ok prune_result with

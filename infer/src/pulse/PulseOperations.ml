@@ -69,9 +69,32 @@ include Import
 
 type t = AbductiveDomain.t
 
+let entities_of_address location address astate =
+  let line = PulseGuard.source_line_of_location location in
+  let source_vars =
+    Stack.fold
+      (fun var (value, _) vars ->
+        if AbstractValue.equal value address && Var.appears_in_source_code var then var :: vars
+        else vars )
+      astate []
+    |> List.dedup_and_sort ~compare:Var.compare
+  in
+  if List.is_empty source_vars then
+    [PulseGuard.{origin= Unknown; exp= None; abstract_value= Some address; line}]
+  else [PulseGuard.{origin= MemoryOf source_vars; exp= None; abstract_value= Some address; line}]
+
+
 let check_addr_access path ?(taint_op = false) ?must_be_valid_reason access_mode location
     (address, history) astate =
   let access_trace = Trace.Immediate {location; history} in
+  let astate =
+    let guard =
+      PulseGuard.mk_null_check ~location ~timestamp:path.PathContext.timestamp
+        ~entities:(entities_of_address location address astate)
+        ~abstract_value:address
+    in
+    AbductiveDomain.add_guard guard astate
+  in
   let filename = location.Location.file |> SourceFile.to_rel_path in
   let linenum = location.Location.line in
   if
@@ -110,6 +133,14 @@ let check_addr_access path ?(taint_op = false) ?must_be_valid_reason access_mode
     in
     match access_mode with
     | Read ->
+        let astate =
+          let guard =
+            PulseGuard.mk_initialized_check ~location ~timestamp:path.PathContext.timestamp
+              ~entities:(entities_of_address location address astate)
+              ~abstract_value:address
+          in
+          AbductiveDomain.add_guard guard astate
+        in
         AddressAttributes.check_initialized path access_trace address astate
         |> Result.map_error ~f:(fun () ->
                ReportableError

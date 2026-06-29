@@ -15,6 +15,7 @@ module BaseMemory = PulseBaseMemory
 module BaseAddressAttributes = PulseBaseAddressAttributes
 module BaseDependency = PulseBaseDependency
 module Decompiler = PulseDecompiler
+module Guard = PulseGuard
 module PathContext = PulsePathContext
 module UninitBlocklist = PulseUninitBlocklist
 
@@ -172,20 +173,25 @@ type t =
   ; topl: (PulseTopl.state[@yojson.opaque])
   ; need_specialization: bool
   ; skipped_calls: SkippedCalls.t
+  ; guard_trace: Guard.trace
   ; path_lines: PathLines.t
   ; cost: cost }
 [@@deriving compare, equal, yojson_of]
 
-let pp f {post; pre; path_condition; decompiler; need_specialization; topl; skipped_calls} =
+let pp f
+    {post; pre; path_condition; decompiler; need_specialization; topl; skipped_calls; guard_trace} =
   let pp_decompiler f =
     if Config.debug_level_analysis >= 3 then F.fprintf f "decompiler=%a;@;" Decompiler.pp decompiler
   in
-  F.fprintf f "@[<v>%a@;%a@;PRE=[%a]@;%tneed_specialization=%b@;skipped_calls=%a@;Topl=%a@]"
-    PathCondition.pp path_condition PostDomain.pp post PreDomain.pp pre pp_decompiler
+  let pp_guards f =
+    if Config.debug_level_analysis >= 3 then F.fprintf f "guards=%d@;" (List.length guard_trace)
+  in
+  F.fprintf f "@[<v>%a@;%a@;PRE=[%a]@;%t%tneed_specialization=%b@;skipped_calls=%a@;Topl=%a@]"
+    PathCondition.pp path_condition PostDomain.pp post PreDomain.pp pre pp_decompiler pp_guards
     need_specialization SkippedCalls.pp skipped_calls PulseTopl.pp_state topl
 
 
-let pp_summary f {post; pre; path_condition; cost} =
+let pp_summary f {post; pre; path_condition; cost; guard_trace} =
   let itv = PathCondition.pp_summary f path_condition in
   let pre = F.asprintf "%a" PreDomain.pp_summary pre |> String.split ~on:';' in
   let post = F.asprintf "%a" PostDomain.pp_summary post |> String.split ~on:';' in
@@ -193,6 +199,7 @@ let pp_summary f {post; pre; path_condition; cost} =
   | [pre_stack; pre_heap; pre_dep], [post_stack; post_heap; post_dep] ->
       itv
       @ [ ("Cost", `String (pp_cost cost))
+        ; ("GuardTrace", PulseGuard.yojson_of_trace (List.rev guard_trace))
         ; ("Precond_Stack", `String pre_stack)
         ; ("Precond_Heap", `String pre_heap)
         ; ("Precond_Dependency", `String pre_dep)
@@ -212,6 +219,10 @@ let unset_need_specialization astate = {astate with need_specialization= false}
 let set_cost cost astate = {astate with cost}
 
 let set_path_lines path_lines astate = {astate with path_lines}
+
+let add_guard guard astate = {astate with guard_trace= Guard.add guard astate.guard_trace}
+
+let get_guard_trace astate = astate.guard_trace
 
 let map_decompiler astate ~f = {astate with decompiler= f astate.decompiler}
 
@@ -270,6 +281,7 @@ module Dependency = struct
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
             ; skipped_calls= astate.skipped_calls
+            ; guard_trace= astate.guard_trace
             ; path_lines= astate.path_lines
             ; cost= astate.cost }
           , deps )
@@ -378,6 +390,7 @@ module Stack = struct
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
             ; skipped_calls= astate.skipped_calls
+            ; guard_trace= astate.guard_trace
             ; path_lines= astate.path_lines
             ; cost= astate.cost }
           , addr_hist )
@@ -711,6 +724,7 @@ module Memory = struct
             ; need_specialization= astate.need_specialization
             ; topl= astate.topl
             ; skipped_calls= astate.skipped_calls
+            ; guard_trace= astate.guard_trace
             ; path_lines= astate.path_lines
             ; cost= astate.cost }
           , addr_hist_dst )
@@ -875,6 +889,7 @@ let mk_initial tenv proc_name (proc_attrs : ProcAttributes.t) =
     ; need_specialization= false
     ; topl= PulseTopl.start ()
     ; skipped_calls= SkippedCalls.empty
+    ; guard_trace= Guard.empty_trace
     ; path_lines= PathLines.empty
     ; cost= Int 0 }
   in

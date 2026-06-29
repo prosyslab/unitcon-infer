@@ -13,6 +13,7 @@ module BaseStack = PulseBaseStack
 module Decompiler = PulseDecompiler
 module PathContext = PulsePathContext
 module BaseDependency = PulseBaseDependency
+module Guard = PulseGuard
 
 type cost = PlusInf | Int of int
 
@@ -64,6 +65,7 @@ type t = private
   ; need_specialization: bool
         (** a call that could be resolved via analysis-time specialization has been skipped *)
   ; skipped_calls: SkippedCalls.t  (** metadata: procedure calls for which no summary was found *)
+  ; guard_trace: Guard.trace  (** provenance for explicit/implicit guards seen along the path *)
   ; path_lines: PathLines.t  (** intra procedural path lines *)
   ; cost: cost }
 [@@deriving equal]
@@ -79,6 +81,10 @@ val mk_initial : Tenv.t -> Procname.t -> ProcAttributes.t -> t
 val get_pre : t -> BaseDomain.t
 
 val get_post : t -> BaseDomain.t
+
+val add_guard : Guard.t -> t -> t
+
+val get_guard_trace : t -> Guard.trace
 
 module Dependency : sig
   val of_abstract_value : AbstractValue.t -> BaseDependency.key
