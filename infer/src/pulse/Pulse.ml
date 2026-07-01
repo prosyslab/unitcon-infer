@@ -829,7 +829,15 @@ module PulseTransferFunctions = struct
                 | ContinueProgram astate' -> (
                   match List.hd actuals with
                   | Some (exp, _) ->
-                      ContinueProgram (PulseOperations.add_potential_pc_for_call exp astate')
+                      let entities = PulseGuard.entities_of_exp exp in
+                      let entities = PulseOperations.entities_with_dependency entities astate' in
+                      let guard =
+                        PulseGuard.mk_null_check ~location:loc ~timestamp:path.PathContext.timestamp
+                          ~entities ~abstract_value:None
+                      in
+                      ContinueProgram
+                        ( PulseOperations.add_potential_pc_for_call exp astate'
+                        |> AbductiveDomain.add_guard guard )
                   | None ->
                       astate ) )
           in
@@ -838,10 +846,12 @@ module PulseTransferFunctions = struct
           in
           (astates, path, astate_n)
       | Prune (condition, loc, is_then_branch, if_kind) ->
+          let entities = PulseGuard.entities_of_exp condition in
+          let entities = PulseOperations.entities_with_dependency entities astate in
           let astate =
             let guard =
               PulseGuard.mk_explicit_prune ~location:loc ~timestamp:path.PathContext.timestamp
-                ~if_kind ~is_then_branch ~condition
+                ~entities ~if_kind ~is_then_branch ~condition
             in
             AbductiveDomain.add_guard guard astate
           in

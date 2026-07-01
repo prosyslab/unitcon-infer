@@ -1,5 +1,6 @@
 open! IStd
 open PulseBasicInterface
+module BaseDependency = PulseBaseDependency
 
 type source_line = int [@@deriving compare, equal, yojson_of]
 
@@ -7,10 +8,7 @@ type operand_origin = SourceVar of Var.t | TempIdent of Ident.t | MemoryOf of Va
 [@@deriving compare, equal, yojson_of]
 
 type used_entity =
-  { origin: operand_origin
-  ; exp: (Exp.t option[@compare.ignore] [@equal.ignore] [@yojson.opaque])
-  ; abstract_value: AbstractValue.t option
-  ; line: source_line }
+  {origin: operand_origin; abstract_value: AbstractValue.t option; dependency: BaseDependency.value}
 [@@deriving compare, equal]
 
 type kind =
@@ -46,11 +44,18 @@ val pp_trace : Format.formatter -> trace -> unit
 
 val vars_of_exp : Exp.t -> Var.t list
 
-val entities_of_exp : location:Location.t -> Exp.t -> used_entity list
+val mk_memory_entity : Var.t list -> AbstractValue.t option -> used_entity
+
+val mk_unknown_entity : AbstractValue.t option -> used_entity
+
+val entities_of_exp : Exp.t -> used_entity list
+
+val set_dependency : BaseDependency.value -> used_entity -> used_entity
 
 val mk_explicit_prune :
      location:Location.t
   -> timestamp:Timestamp.t
+  -> entities:used_entity list
   -> if_kind:Sil.if_kind
   -> is_then_branch:bool
   -> condition:Exp.t
@@ -60,12 +65,12 @@ val mk_null_check :
      location:Location.t
   -> timestamp:Timestamp.t
   -> entities:used_entity list
-  -> abstract_value:AbstractValue.t
+  -> abstract_value:AbstractValue.t option
   -> t
 
 val mk_initialized_check :
      location:Location.t
   -> timestamp:Timestamp.t
   -> entities:used_entity list
-  -> abstract_value:AbstractValue.t
+  -> abstract_value:AbstractValue.t option
   -> t

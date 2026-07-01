@@ -64,7 +64,11 @@ let subst_var (v, v') dependency =
 
 let compare = M.compare Set.compare
 
+let compare_value = Set.compare
+
 let equal = M.equal Set.equal
+
+let equal_value = Set.equal
 
 let of_abstract_value v = Symbol.AbsSym v
 

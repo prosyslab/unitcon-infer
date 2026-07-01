@@ -72,6 +72,8 @@ include module type of Import
 
 type t = AbductiveDomain.t
 
+val entities_with_dependency : PulseGuard.used_entity list -> t -> PulseGuard.used_entity list
+
 val check_addr_access :
      PathContext.t
   -> ?taint_op:bool

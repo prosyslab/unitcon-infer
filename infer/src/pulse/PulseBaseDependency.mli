@@ -30,7 +30,11 @@ val subst_var : AbstractValue.t * AbstractValue.t -> t -> t SatUnsat.t
 
 val compare : t -> t -> int
 
+val compare_value : Set.t -> Set.t -> int
+
 val equal : t -> t -> bool
+
+val equal_value : Set.t -> Set.t -> bool
 
 val of_abstract_value : AbstractValue.t -> Symbol.t
 

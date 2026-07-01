@@ -69,8 +69,36 @@ include Import
 
 type t = AbductiveDomain.t
 
-let entities_of_address location address astate =
-  let line = PulseGuard.source_line_of_location location in
+let dependency_of_entity entity astate =
+  let open PulseGuard in
+  let add_var_dep var dep =
+    BaseDependency.Set.union dep (Dependency.find (Dependency.of_var var) astate)
+  in
+  let dep_from_origin =
+    match entity.origin with
+    | SourceVar var ->
+        add_var_dep var BaseDependency.Set.empty
+    | TempIdent id ->
+        add_var_dep (Var.of_id id) BaseDependency.Set.empty
+    | MemoryOf vars ->
+        List.fold vars ~init:BaseDependency.Set.empty ~f:(fun dep var -> add_var_dep var dep)
+    | Unknown ->
+        BaseDependency.Set.empty
+  in
+  match entity.abstract_value with
+  | Some value ->
+      BaseDependency.Set.union dep_from_origin
+        (Dependency.find (Dependency.of_abstract_value value) astate)
+  | None ->
+      dep_from_origin
+
+
+let entities_with_dependency entities astate =
+  List.map entities ~f:(fun entity ->
+      PulseGuard.set_dependency (dependency_of_entity entity astate) entity )
+
+
+let entities_of_address address astate =
   let source_vars =
     Stack.fold
       (fun var (value, _) vars ->
@@ -79,9 +107,8 @@ let entities_of_address location address astate =
       astate []
     |> List.dedup_and_sort ~compare:Var.compare
   in
-  if List.is_empty source_vars then
-    [PulseGuard.{origin= Unknown; exp= None; abstract_value= Some address; line}]
-  else [PulseGuard.{origin= MemoryOf source_vars; exp= None; abstract_value= Some address; line}]
+  if List.is_empty source_vars then [PulseGuard.mk_unknown_entity (Some address)]
+  else [PulseGuard.mk_memory_entity source_vars (Some address)]
 
 
 let check_addr_access path ?(taint_op = false) ?must_be_valid_reason access_mode location
@@ -90,8 +117,8 @@ let check_addr_access path ?(taint_op = false) ?must_be_valid_reason access_mode
   let astate =
     let guard =
       PulseGuard.mk_null_check ~location ~timestamp:path.PathContext.timestamp
-        ~entities:(entities_of_address location address astate)
-        ~abstract_value:address
+        ~entities:(entities_with_dependency (entities_of_address address astate) astate)
+        ~abstract_value:(Some address)
     in
     AbductiveDomain.add_guard guard astate
   in
@@ -136,8 +163,8 @@ let check_addr_access path ?(taint_op = false) ?must_be_valid_reason access_mode
         let astate =
           let guard =
             PulseGuard.mk_initialized_check ~location ~timestamp:path.PathContext.timestamp
-              ~entities:(entities_of_address location address astate)
-              ~abstract_value:address
+              ~entities:(entities_with_dependency (entities_of_address address astate) astate)
+              ~abstract_value:(Some address)
           in
           AbductiveDomain.add_guard guard astate
         in
